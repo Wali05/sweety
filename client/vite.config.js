@@ -1,0 +1,20 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+const API_TARGET = 'http://localhost:3000';
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    // Fail instead of silently moving to another port: the API's CORS
+    // default (CLIENT_ORIGIN) expects the client on 5173.
+    strictPort: true,
+    // Forward API paths to the Express server so the client can use
+    // same-origin URLs like /auth/login during development.
+    proxy: {
+      '/auth': API_TARGET,
+      '/health': API_TARGET,
+    },
+  },
+});
