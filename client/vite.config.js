@@ -14,6 +14,7 @@ export default defineConfig({
     // same-origin URLs like /auth/login during development.
     proxy: {
       '/auth': API_TARGET,
+      '/readings': API_TARGET,
       '/health': API_TARGET,
     },
   },
