@@ -72,7 +72,7 @@ curl http://localhost:3000/health
 # {"ok":true,"db":"up"}
 ```
 
-So far the API has this health check, the database schema and the auth endpoints below; readings and reports are not implemented yet.
+So far the API has this health check, the database schema, and the auth and readings endpoints below; reports are not implemented yet.
 
 ### Auth endpoints
 
@@ -88,6 +88,49 @@ All bodies and responses are JSON. Errors look like `{ "error": "message" }`.
 - Sign-up trims the name and email, stores the email lowercased, and requires a password of 8 to 72 characters. Passwords are hashed with bcrypt.
 - `token` is a JWT signed with `JWT_SECRET`, valid for 7 days (override with `JWT_EXPIRES_IN`, e.g. `12h`). Send it as `Authorization: Bearer <token>` to `GET /auth/me`.
 
+### Readings endpoints
+
+All of these need `Authorization: Bearer <token>` (otherwise `401`) and only work on the logged-in user's own readings.
+
+| Method and path        | Body                           | Success              | Errors                                                      |
+| ---------------------- | ------------------------------ | -------------------- | ----------------------------------------------------------- |
+| `POST /readings`       | `{ date, slot, value }`        | `201` `{ reading }`  | `400` invalid input, `409` day is full or slot already used |
+| `GET /readings`        | none                           | `200` `{ readings }` | `400` `Date is not valid.`                                  |
+| `GET /readings/:id`    | none                           | `200` `{ reading }`  | `404` `Reading not found.`                                  |
+| `PATCH /readings/:id`  | any of `{ date, slot, value }` | `200` `{ reading }`  | `400` invalid input, `404`, `409` as for `POST`             |
+| `DELETE /readings/:id` | none                           | `204` no body        | `404` `Reading not found.`                                  |
+
+- `reading` is `{ id, date, slot, slotLabel, value, createdAt, updatedAt }`. `date` is always a plain `YYYY-MM-DD` string and `value` is a whole number of mg/dl.
+- `GET /readings` returns all of the user's readings, newest date first and in slot order within a day. Filter with `?date=YYYY-MM-DD` for one day, or `?from=` and/or `?to=` for an inclusive range (`date` wins if both are given). A date that does not exist, or `from` after `to`, gives `400` `Date is not valid.`
+- A reading that belongs to another user, an unknown id and a malformed id all give `404` `Reading not found.`, so ids are never revealed.
+
+Slots:
+
+| `slot`            | `slotLabel`       |
+| ----------------- | ----------------- |
+| `morning_fasting` | Morning (fasting) |
+| `after_breakfast` | After breakfast   |
+| `after_lunch`     | After lunch       |
+| `after_dinner`    | After dinner      |
+
+Validation rules, checked in this order; the first failure is returned as the error message:
+
+| Rule                                         | Status | Message                                   |
+| -------------------------------------------- | ------ | ----------------------------------------- |
+| `date` is missing                            | `400`  | `Please choose a date.`                   |
+| `date` is not a real `YYYY-MM-DD` date       | `400`  | `Date is not valid.`                      |
+| `date` is after today                        | `400`  | `Date cannot be in the future.`           |
+| `slot` is missing                            | `400`  | `Please choose a time slot.`              |
+| `slot` is not one of the four keys           | `400`  | `Time slot is not valid.`                 |
+| `value` is missing                           | `400`  | `Please enter a glucose value.`           |
+| `value` is not a whole number from 40 to 600 | `400`  | `Value must be between 40 and 600 mg/dl.` |
+| `PATCH` body has none of the three fields    | `400`  | `Nothing to update.`                      |
+| The date already has 4 readings              | `409`  | `You can add only 4 readings per day.`    |
+| The date already has a reading in that slot  | `409`  | `You already have an After lunch reading for this date.` (with that slot's label) |
+
+- "Today" is decided in the `APP_TIMEZONE` time zone (default Asia/Kolkata), not the time zone of the server machine or the client.
+- `PATCH` validates only the fields that are sent. The two `409` checks run when the date or slot changes and ignore the reading being edited.
+
 ### Client
 
 Start the React client (a Vite dev server with hot reload):
@@ -100,7 +143,7 @@ It serves on http://localhost:5173, which is the default `CLIENT_ORIGIN`. If tha
 
 The client is only a shell for now: a home page (`/`) and placeholder login (`/login`) and sign-up (`/signup`) pages. The forms are not hooked up to the API yet, so submitting them does nothing.
 
-The dev server proxies `/auth` and `/health` to the API at http://localhost:3000, so later client code can call the API with same-origin paths. The proxy target is set in `client/vite.config.js`; change it there if you run the API on a different `PORT`.
+The dev server proxies `/auth`, `/readings` and `/health` to the API at http://localhost:3000, so later client code can call the API with same-origin paths. The proxy target is set in `client/vite.config.js`; change it there if you run the API on a different `PORT`.
 
 ## Tests
 
