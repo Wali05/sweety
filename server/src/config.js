@@ -20,6 +20,8 @@ const config = {
   // How long a login lasts; any value jsonwebtoken accepts, e.g. "7d" or "12h".
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  // IANA time zone that decides what "today" is, independent of the server clock.
+  appTimezone: process.env.APP_TIMEZONE || 'Asia/Kolkata',
 };
 
 if (!config.databaseUrl) {

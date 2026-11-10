@@ -55,6 +55,7 @@ Run this at the repository root; it installs dependencies for both workspaces.
 | `JWT_SECRET`    | Secret used to sign auth tokens                    |
 | `JWT_EXPIRES_IN` | Optional. How long a login token lasts (default 7d) |
 | `CLIENT_ORIGIN` | Origin of the React client, allowed through CORS   |
+| `APP_TIMEZONE`  | Optional. Time zone that decides what "today" is for readings (default Asia/Kolkata) |
 
 ## Running
 
