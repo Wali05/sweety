@@ -147,4 +147,12 @@ The dev server proxies `/auth`, `/readings` and `/health` to the API at http://l
 
 ## Tests
 
-Tests will be added as features land. `npm test` at the root will run the test script of each workspace.
+The API tests use Node's built-in test runner (`node:test`) with supertest, which calls the Express app directly without opening a port.
+
+They run against the real database from `DATABASE_URL`, so it must be set up and migrated first (see [Database setup](#database-setup)). Each test signs up its own users with unique `@example.test` emails and removes them, along with their readings, when the run finishes; no other data is touched.
+
+```sh
+npm test
+```
+
+Run this at the repository root (it runs the test script of each workspace) or inside `server/`.
