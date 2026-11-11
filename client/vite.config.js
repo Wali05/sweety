@@ -19,4 +19,13 @@ export default defineConfig({
       '/health': API_TARGET,
     },
   },
+  // Used by `npm test` (Vitest). fetch is mocked in every test, so no API
+  // server is needed.
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
+    include: ['src/**/*.test.{js,jsx}'],
+    restoreMocks: true,
+    unstubGlobals: true,
+  },
 });

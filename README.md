@@ -2,7 +2,7 @@
 
 Sweety is a blood glucose tracker. A patient records up to 4 blood glucose readings per day and views daily, month-to-date, and previous-month reports.
 
-The project is in active development: this repository currently contains the monorepo scaffold, the API server (sign-up and login, readings, and reports), the database schema, and a React client shell that is not connected to the API yet; features will land incrementally.
+The project is in active development: this repository currently contains the monorepo scaffold, the API server (sign-up and login, readings, and reports), the database schema, and a React client with sign-up, login and a placeholder dashboard; features will land incrementally.
 
 ## Stack
 
@@ -14,7 +14,7 @@ The repository is an npm workspaces monorepo with two packages, `server/` and `c
 
 ## Install
 
-Requires Node.js 18 or newer.
+Requires Node.js 22.22 or newer (the client tooling needs it).
 
 ```sh
 npm install
@@ -218,13 +218,26 @@ npm run dev:client
 
 It serves on http://localhost:5173, which is the default `CLIENT_ORIGIN`. If that port is taken, the command fails rather than picking another one.
 
-The client is only a shell for now: a home page (`/`) and placeholder login (`/login`) and sign-up (`/signup`) pages. The forms are not hooked up to the API yet, so submitting them does nothing.
+The client has a home page (`/`) and sign-up (`/signup`) and login (`/login`) pages that call the auth API:
+
+- After signing up or logging in, the token is kept in `localStorage` under `sweety.token`, so the session survives a reload. On start-up the client checks a stored token with `GET /auth/me` and removes it if the server answers `401`.
+- The dashboard (`/dashboard`) is only for logged-in users. Anyone else is sent to the login page and brought back afterwards; logged-in users who open `/login` or `/signup` go straight to the dashboard. The dashboard is a placeholder for now; readings and reports come next.
+- **Log out** in the header removes the token and returns to the login page.
+- Validation messages come from the server and are shown as they are. A few checks (missing fields, an email that is not valid on sign-up, a password shorter than 8 characters) run in the browser first, with the same messages, so they don't need a request.
 
 The dev server proxies `/auth`, `/readings`, `/reports` and `/health` to the API at http://localhost:3000, so later client code can call the API with same-origin paths. The proxy target is set in `client/vite.config.js`; change it there if you run the API on a different `PORT`.
 
 ## Tests
 
-The tests use Node's built-in test runner (`node:test`). The API tests add supertest, which calls the Express app directly without opening a port.
+```sh
+npm test
+```
+
+Run this at the repository root; it runs the test script of each workspace, the server tests first and then the client tests. Both run once and exit (no watch mode).
+
+### Server tests
+
+The server tests use Node's built-in test runner (`node:test`). The API tests add supertest, which calls the Express app directly without opening a port.
 
 | File                               | Covers                                                    |
 | ---------------------------------- | --------------------------------------------------------- |
@@ -235,8 +248,25 @@ The tests use Node's built-in test runner (`node:test`). The API tests add super
 
 The API tests run against the real database from `DATABASE_URL`, so it must be set up and migrated first (see [Database setup](#database-setup)). Each test signs up its own users with unique `@example.test` emails and removes them, along with their readings, when the run finishes; no other data is touched.
 
+To run only the server tests:
+
 ```sh
-npm test
+npm test --workspace server
 ```
 
-Run this at the repository root (it runs the test script of each workspace) or inside `server/`.
+### Client tests
+
+The client tests use Vitest and React Testing Library in a jsdom environment. `fetch` is mocked in every test, so they need neither the API server nor the database. Most of them render the whole app (`<App />` inside a `MemoryRouter` and the `AuthProvider`) and use it the way a person would: typing into the forms and clicking buttons.
+
+| File                                       | Covers                                                                            |
+| ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `client/src/__tests__/apiClient.test.js`   | API client: JSON body and Bearer header, server error messages, network failures  |
+| `client/src/__tests__/Login.test.jsx`      | Login form checks, server errors, storing the token and landing on the dashboard  |
+| `client/src/__tests__/Signup.test.jsx`     | Sign-up password length check and the server message for an email already in use |
+| `client/src/__tests__/routeGuard.test.jsx` | Protected dashboard: logged-out redirect, session restore, rejected token, logout |
+
+The test setup and the shared helper that renders the app and mocks `fetch` are in `client/src/test/`. To run only the client tests:
+
+```sh
+npm test --workspace client
+```
