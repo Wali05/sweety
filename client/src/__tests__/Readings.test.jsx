@@ -42,10 +42,13 @@ describe('Readings page', () => {
 
     const items = screen.getAllByRole('listitem').map((item) => item.textContent);
     expect(items).toEqual([
-      'Morning (fasting)95 mg/dl',
-      'After lunch151 mg/dl',
-      'After dinner180 mg/dl',
+      'Morning (fasting)95 mg/dlEditDelete',
+      'After lunch151 mg/dlEditDelete',
+      'After dinner180 mg/dlEditDelete',
     ]);
+    // Each row's buttons name the slot they act on.
+    expect(screen.getByRole('button', { name: 'Edit After lunch reading' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete After lunch reading' })).toBeInTheDocument();
     expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe('Bearer stored-token');
   });
 

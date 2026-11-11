@@ -175,7 +175,10 @@ describe('Add a reading form', () => {
     expect(await screen.findByText('2 of 4 readings')).toBeInTheDocument();
     expect(requestBody(fetchMock, 2)).toEqual({ date: TODAY, slot: 'after_breakfast', value: 140 });
     const items = screen.getAllByRole('listitem').map((item) => item.textContent);
-    expect(items).toEqual(['Morning (fasting)95 mg/dl', 'After breakfast140 mg/dl']);
+    expect(items).toEqual([
+      'Morning (fasting)95 mg/dlEditDelete',
+      'After breakfast140 mg/dlEditDelete',
+    ]);
     expect(screen.getByText('Reading saved.')).toHaveAttribute('role', 'status');
     expect(valueInput()).toHaveValue('');
     expect(slotSelect()).toHaveValue('after_lunch');

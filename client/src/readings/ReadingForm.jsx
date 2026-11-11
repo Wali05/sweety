@@ -37,6 +37,15 @@ function validateReading({ date, slot, value }, { today, takenSlots }) {
   return errors;
 }
 
+// The fields of values that differ from the reading being edited.
+function changedFields(values, original) {
+  const changes = {};
+  if (values.date !== original.date) changes.date = values.date;
+  if (values.slot !== original.slot) changes.slot = values.slot;
+  if (values.value !== Number(original.value)) changes.value = values.value;
+  return changes;
+}
+
 function FieldError({ id, message }) {
   if (!message) return null;
   return (
@@ -54,16 +63,23 @@ function FieldError({ id, message }) {
 // - dayReadings: { date, readings } already loaded by the page (readings is
 //   null while loading), so that day is not fetched twice. The readings on any
 //   other date are loaded here.
-// - readingId: the reading being edited; its own slot does not count as taken.
+// - readingId: the reading being edited; its own slot does not count as taken,
+//   and the value field gets focus when the form opens.
+// - label: the form's accessible name, e.g. when it edits a row of a list.
 // - onSave(values): resolves with { reading } or rejects with an ApiError.
+//   When editing, values holds only the fields that changed.
 // - onSaved(reading): called after a successful save.
+// - onCancel(): adds a Cancel button that calls it. When editing, saving with
+//   nothing changed calls it too, without a request.
 export default function ReadingForm({
   initialValues,
   dayReadings = null,
   readingId = null,
+  label,
   submitLabel = 'Add reading',
   onSave,
   onSaved,
+  onCancel,
 }) {
   const { logout } = useAuth();
   const id = useId();
@@ -71,12 +87,15 @@ export default function ReadingForm({
   const slotRef = useRef(null);
   const valueRef = useRef(null);
   const today = todayLocal();
+  const editing = readingId !== null;
 
+  // The values the form opened with, which an edit is compared against.
+  const [original] = useState(initialValues);
   const [date, setDate] = useState(initialValues.date);
   const [followedDate, setFollowedDate] = useState(initialValues.date);
   // '' until the user picks a slot; the first free slot is shown until then.
   const [chosenSlot, setChosenSlot] = useState(initialValues.slot ?? '');
-  const [value, setValue] = useState(initialValues.value ?? '');
+  const [value, setValue] = useState(String(initialValues.value ?? ''));
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [status, setStatus] = useState('');
@@ -139,10 +158,17 @@ export default function ReadingForm({
       return;
     }
 
+    const values = { date, slot, value: Number(value.trim()) };
+    const toSend = editing ? changedFields(values, original) : values;
+    if (Object.keys(toSend).length === 0) {
+      onCancel?.();
+      return;
+    }
+
     setSaving(true);
     let saved;
     try {
-      saved = await onSave({ date, slot, value: Number(value.trim()) });
+      saved = await onSave(toSend);
     } catch (err) {
       if (isUnauthorized(err)) {
         logout();
@@ -156,9 +182,12 @@ export default function ReadingForm({
     }
 
     setSaving(false);
-    setChosenSlot('');
-    setValue('');
-    setStatus('Reading saved.');
+    // An edit form is closed by its owner; the add form gets ready for the next one.
+    if (!editing) {
+      setChosenSlot('');
+      setValue('');
+      setStatus('Reading saved.');
+    }
     onSaved?.(saved.reading);
   }
 
@@ -169,7 +198,7 @@ export default function ReadingForm({
   }
 
   return (
-    <form className="reading-form" onSubmit={handleSubmit} noValidate>
+    <form className="reading-form" aria-label={label} onSubmit={handleSubmit} noValidate>
       <div className="field">
         <label htmlFor={`${id}-date`}>Reading date</label>
         <input
@@ -218,6 +247,7 @@ export default function ReadingForm({
           autoComplete="off"
           required
           disabled={dayIsFull}
+          autoFocus={editing}
           value={value}
           onChange={(event) => {
             setValue(event.target.value);
@@ -242,9 +272,21 @@ export default function ReadingForm({
           {status}
         </p>
       )}
-      <button type="submit" className="button" disabled={saving || dayIsFull}>
-        {saving ? 'Saving…' : submitLabel}
-      </button>
+      <div className="actions">
+        <button type="submit" className="button" disabled={saving || dayIsFull}>
+          {saving ? 'Saving…' : submitLabel}
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={saving}
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   );
 }

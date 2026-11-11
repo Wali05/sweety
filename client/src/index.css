@@ -7,6 +7,7 @@
   --accent: #0f766e;
   --accent-dark: #0b5a54;
   --danger: #b42318;
+  --danger-dark: #912018;
   --danger-bg: #fef3f2;
   --danger-border: #f5c2bd;
   --success: #067647;
@@ -136,7 +137,8 @@ main.container {
 
 /* Readings */
 
-.readings-date input {
+/* Two classes, so it wins over the full-width .field input rule further down. */
+.field.readings-date input {
   width: auto;
 }
 
@@ -156,14 +158,37 @@ main.container {
 
 .reading-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem 1rem;
   padding: 0.75rem 1rem;
 }
 
 .reading-list li + li {
   border-top: 1px solid var(--border);
+}
+
+/* A row being edited holds the whole form. */
+.reading-list li.reading-editing {
+  display: block;
+}
+
+/* Grows to push the value and buttons to the right. */
+.reading-slot {
+  flex: auto;
+}
+
+.reading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  /* Stays on the right when it wraps onto its own line. */
+  margin-left: auto;
+}
+
+.reading-question {
+  font-weight: 600;
 }
 
 .reading-value {
@@ -228,8 +253,23 @@ main.container {
   background: transparent;
 }
 
-.button-secondary:hover {
+.button-secondary:hover:not(:disabled) {
   color: #ffffff;
+}
+
+.button-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.button-danger:hover:not(:disabled) {
+  background: var(--danger-dark);
+  border-color: var(--danger-dark);
+}
+
+.button-small {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.875rem;
 }
 
 /* Forms */
