@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.local
+**/*.log
+.git
+.gitignore
+sessions
+SPEC.md
+PLAN.md
+.DS_Store
+.vscode
+.idea
