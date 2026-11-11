@@ -1,4 +1,7 @@
 import { Component, Suspense, lazy, useId, useMemo } from 'react';
+import Alert from '../ui/Alert.jsx';
+import EmptyState from '../ui/EmptyState.jsx';
+import Loading from '../ui/Loading.jsx';
 import {
   buildChartData,
   chartSummary,
@@ -11,12 +14,8 @@ import {
 // out of the main bundle.
 const MonthChart = lazy(() => import('./MonthChart.jsx'));
 
-function Loading() {
-  return (
-    <p className="loading" role="status">
-      Loading chart…
-    </p>
-  );
+function ChartLoading() {
+  return <Loading>Loading chart…</Loading>;
 }
 
 // Shows a message in place of the chart when its code cannot be loaded or it
@@ -30,11 +29,7 @@ class ChartBoundary extends Component {
 
   render() {
     if (!this.state.failed) return this.props.children;
-    return (
-      <p className="alert alert-error" role="alert">
-        The chart could not be shown. Please reload the page.
-      </p>
-    );
+    return <Alert>The chart could not be shown. Please reload the page.</Alert>;
   }
 }
 
@@ -52,15 +47,11 @@ export default function MonthSection({ date, readings, error }) {
 
   let content;
   if (error) {
-    content = (
-      <p className="alert alert-error" role="alert">
-        {error}
-      </p>
-    );
+    content = <Alert title="The chart could not be loaded.">{error}</Alert>;
   } else if (!readings) {
-    content = <Loading />;
+    content = <ChartLoading />;
   } else if (count === 0) {
-    content = <p className="empty">{emptyChartMessage(from, to)}</p>;
+    content = <EmptyState>{emptyChartMessage(from, to)}</EmptyState>;
   } else {
     content = (
       <>
@@ -69,7 +60,7 @@ export default function MonthSection({ date, readings, error }) {
           {chartSummary(count, from, to)}
         </p>
         <ChartBoundary>
-          <Suspense fallback={<Loading />}>
+          <Suspense fallback={<ChartLoading />}>
             <MonthChart points={points} describedBy={`${id}-summary`} />
           </Suspense>
         </ChartBoundary>
@@ -78,7 +69,7 @@ export default function MonthSection({ date, readings, error }) {
   }
 
   return (
-    <section className="report report-chart" aria-labelledby={`${id}-title`}>
+    <section className="card report report-chart" aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`}>Month-to-date chart</h2>
       {content}
     </section>

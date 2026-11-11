@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { afterAuthPath } from '../auth/redirects.js';
+import Alert from '../ui/Alert.jsx';
 
 const MIN_PASSWORD_LENGTH = 8;
 // Same pattern as the server: something@something.something with no spaces.
@@ -58,8 +59,9 @@ export default function Signup() {
   }
 
   return (
-    <section className="card">
+    <section className="card auth-card">
       <h1>Sign up</h1>
+      <p className="lead">Create an account to start recording your readings.</p>
       <form onSubmit={handleSubmit} noValidate>
         <div className="field">
           <label htmlFor="signup-name">Name</label>
@@ -103,12 +105,8 @@ export default function Signup() {
             8 to 72 characters.
           </p>
         </div>
-        {error && (
-          <p className="alert alert-error" role="alert">
-            {error}
-          </p>
-        )}
-        <button type="submit" className="button" disabled={submitting}>
+        {error && <Alert>{error}</Alert>}
+        <button type="submit" className="button button-block" disabled={submitting}>
           {submitting ? 'Creating account…' : 'Sign up'}
         </button>
       </form>

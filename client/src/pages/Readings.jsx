@@ -5,6 +5,9 @@ import ReadingForm from '../readings/ReadingForm.jsx';
 import ReadingItem from '../readings/ReadingItem.jsx';
 import { MAX_READINGS_PER_DAY, MESSAGES, sortBySlot, todayLocal } from '../readings/slots.js';
 import { useDayReadings } from '../readings/useDayReadings.js';
+import Alert from '../ui/Alert.jsx';
+import EmptyState from '../ui/EmptyState.jsx';
+import Loading from '../ui/Loading.jsx';
 
 export default function Readings() {
   const { token, logout } = useAuth();
@@ -75,83 +78,87 @@ export default function Readings() {
     reload();
   }
 
+  // The day's count sits beside the date once the readings have loaded.
+  let count = null;
   let content;
   if (dateProblem) {
-    content = <p className="empty">{dateProblem}</p>;
+    content = <EmptyState id="readings-date-problem">{dateProblem}</EmptyState>;
   } else if (error) {
-    content = (
-      <p className="alert alert-error" role="alert">
-        {error}
-      </p>
-    );
+    content = <Alert title="Your readings could not be loaded.">{error}</Alert>;
   } else if (!readings) {
-    content = (
-      <p className="loading" role="status">
-        Loading readings…
-      </p>
-    );
+    content = <Loading>Loading readings…</Loading>;
   } else {
     const sorted = sortBySlot(readings);
-    content = (
-      <>
-        <p className="reading-count">{`${sorted.length} of ${MAX_READINGS_PER_DAY} readings`}</p>
-        {sorted.length === 0 ? (
-          <p className="empty">No readings for this date yet.</p>
-        ) : (
-          <ul className="reading-list">
-            {sorted.map((reading) => (
-              <ReadingItem
-                key={reading.id}
-                reading={reading}
-                mode={active?.id === reading.id ? active.mode : 'view'}
-                dayReadings={{ date, readings }}
-                deleting={deletingId === reading.id}
-                onEdit={() => open(reading.id, 'edit')}
-                onAskDelete={() => open(reading.id, 'delete')}
-                onCancel={() => close(reading.id)}
-                onSave={(changes) => updateReading(token, reading.id, changes)}
-                onSaved={handleUpdated}
-                onConfirmDelete={() => handleDelete(reading)}
-              />
-            ))}
-          </ul>
-        )}
-      </>
+    count = (
+      <p className="reading-count">{`${sorted.length} of ${MAX_READINGS_PER_DAY} readings`}</p>
     );
+    content =
+      sorted.length === 0 ? (
+        <EmptyState hint="Add one with the form on this page.">
+          No readings for this date yet.
+        </EmptyState>
+      ) : (
+        <ul className="reading-list">
+          {sorted.map((reading) => (
+            <ReadingItem
+              key={reading.id}
+              reading={reading}
+              mode={active?.id === reading.id ? active.mode : 'view'}
+              dayReadings={{ date, readings }}
+              deleting={deletingId === reading.id}
+              onEdit={() => open(reading.id, 'edit')}
+              onAskDelete={() => open(reading.id, 'delete')}
+              onCancel={() => close(reading.id)}
+              onSave={(changes) => updateReading(token, reading.id, changes)}
+              onSaved={handleUpdated}
+              onConfirmDelete={() => handleDelete(reading)}
+            />
+          ))}
+        </ul>
+      );
   }
 
+  // Ties the date field to the message that says what is wrong with it.
+  const dateProblemProps = dateProblem
+    ? { 'aria-invalid': true, 'aria-describedby': 'readings-date-problem' }
+    : {};
+
   return (
-    <section className="readings">
-      <h1>Readings</h1>
-      <div className="field readings-date">
-        <label htmlFor="readings-date">Date</label>
-        <input
-          id="readings-date"
-          name="date"
-          type="date"
-          max={today}
-          value={date}
-          onChange={(event) => changeDate(event.target.value)}
-        />
+    <section>
+      <div className="page-header">
+        <h1>Readings</h1>
+        <p className="lead">Pick a day to see what you recorded, then add, edit or delete.</p>
       </div>
-      {notice && (
-        <p
-          className={`alert alert-${notice.kind}`}
-          role={notice.kind === 'error' ? 'alert' : 'status'}
-        >
-          {notice.text}
-        </p>
-      )}
-      {content}
-      <section className="add-reading" aria-labelledby="add-reading-heading">
-        <h2 id="add-reading-heading">Add a reading</h2>
-        <ReadingForm
-          initialValues={{ date }}
-          dayReadings={dateProblem ? null : { date, readings }}
-          onSave={(values) => createReading(token, values)}
-          onSaved={handleSaved}
-        />
-      </section>
+      <div className="readings-layout">
+        <div className="card">
+          <div className="toolbar">
+            <div className="field field-inline">
+              <label htmlFor="readings-date">Date</label>
+              <input
+                id="readings-date"
+                name="date"
+                type="date"
+                max={today}
+                value={date}
+                onChange={(event) => changeDate(event.target.value)}
+                {...dateProblemProps}
+              />
+            </div>
+            {count}
+          </div>
+          {notice && <Alert kind={notice.kind}>{notice.text}</Alert>}
+          {content}
+        </div>
+        <section className="card add-reading" aria-labelledby="add-reading-heading">
+          <h2 id="add-reading-heading">Add a reading</h2>
+          <ReadingForm
+            initialValues={{ date }}
+            dayReadings={dateProblem ? null : { date, readings }}
+            onSave={(values) => createReading(token, values)}
+            onSaved={handleSaved}
+          />
+        </section>
+      </div>
     </section>
   );
 }

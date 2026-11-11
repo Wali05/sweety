@@ -19,7 +19,7 @@ const SERIES = SLOTS.map((slot, index) => ({ ...slot, color: `var(--slot-${index
 // Recharts sorts the legend by label unless told otherwise.
 const slotOrder = (item) => SERIES.findIndex((series) => series.key === item.dataKey);
 
-const AXIS_TEXT ={ fill: 'var(--muted)', fontSize: 12 };
+const AXIS_TEXT = { fill: 'var(--muted)', fontSize: 12 };
 const AXIS_LINE = { stroke: 'var(--border)' };
 
 // The day under the pointer or picked with the arrow keys: its full date and
@@ -39,7 +39,7 @@ function DayTooltip({ active, payload }) {
         <ul>
           {taken.map((series) => (
             <li key={series.key}>
-              <span className="chart-swatch" style={{ background: series.color }} />
+              <span className="chart-swatch" style={{ background: series.color }} aria-hidden="true" />
               <span className="chart-tooltip-slot">{series.label}</span>
               <span className="reading-value">
                 {point[series.key]} <span className="reading-unit">mg/dl</span>
@@ -60,7 +60,7 @@ export default function MonthChart({ points, describedBy }) {
 
   return (
     <div className="month-chart">
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={320}>
         <LineChart
           data={points}
           margin={{ top: 8, right: 8, bottom: 16, left: 0 }}
@@ -97,9 +97,9 @@ export default function MonthChart({ points, describedBy }) {
           <Tooltip content={<DayTooltip />} cursor={AXIS_LINE} filterNull={false} />
           <Legend
             verticalAlign="top"
-            height={40}
             itemSorter={slotOrder}
             formatter={(label) => <span className="chart-legend-label">{label}</span>}
+            wrapperStyle={{ position: 'relative', paddingBottom: 8 }}
           />
           {SERIES.map((series) => (
             <Line

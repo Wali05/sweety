@@ -4,6 +4,9 @@ import MonthSection from '../reports/MonthSection.jsx';
 import { formatRange } from '../reports/formatRange.js';
 import { useMonthReadings } from '../reports/useMonthReadings.js';
 import { useReports } from '../reports/useReports.js';
+import Alert from '../ui/Alert.jsx';
+import EmptyState from '../ui/EmptyState.jsx';
+import Loading from '../ui/Loading.jsx';
 
 // Shown if a report without readings comes with no message of its own.
 const EMPTY_MESSAGE = 'No readings for this period yet.';
@@ -26,11 +29,11 @@ function ReportSection({ title, report }) {
   const id = useId();
 
   return (
-    <section className="report" aria-labelledby={`${id}-title`}>
+    <section className="card report" aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`}>{title}</h2>
       <p className="report-range">{formatRange(report.from, report.to)}</p>
       {report.empty ? (
-        <p className="empty">{report.message || EMPTY_MESSAGE}</p>
+        <EmptyState>{report.message || EMPTY_MESSAGE}</EmptyState>
       ) : (
         <>
           <dl className="report-stats">
@@ -73,43 +76,51 @@ export default function Reports() {
 
   let content;
   if (dateProblem) {
-    content = <p className="empty">{dateProblem}</p>;
+    content = <EmptyState id="reports-date-problem">{dateProblem}</EmptyState>;
   } else if (error) {
-    content = (
-      <p className="alert alert-error" role="alert">
-        {error}
-      </p>
-    );
+    content = <Alert title="Your reports could not be loaded.">{error}</Alert>;
   } else if (!reports) {
-    content = (
-      <p className="loading" role="status">
-        Loading reports…
-      </p>
-    );
+    content = <Loading>Loading reports…</Loading>;
   } else {
     content = (
       <>
-        <ReportSection title="Daily" report={reports.daily} />
-        <ReportSection title="Month-to-date" report={reports.monthToDate} />
-        <ReportSection title="Previous month" report={reports.previousMonth} />
+        {/* Side by side on wide screens, stacked on narrow ones. */}
+        <div className="report-grid">
+          <ReportSection title="Daily" report={reports.daily} />
+          <ReportSection title="Month-to-date" report={reports.monthToDate} />
+          <ReportSection title="Previous month" report={reports.previousMonth} />
+        </div>
         <MonthSection date={date} readings={month.readings} error={month.error} />
       </>
     );
   }
 
+  // Ties the date field to the message that says what is wrong with it.
+  const dateProblemProps = dateProblem
+    ? { 'aria-invalid': true, 'aria-describedby': 'reports-date-problem' }
+    : {};
+
   return (
-    <section className="reports">
-      <h1>Reports</h1>
-      <div className="field reports-date">
-        <label htmlFor="reports-date">Date</label>
-        <input
-          id="reports-date"
-          name="date"
-          type="date"
-          max={today}
-          value={date}
-          onChange={(event) => setDate(event.target.value)}
-        />
+    <section>
+      <div className="page-header">
+        <h1>Reports</h1>
+        <p className="lead">
+          Summaries for the day you pick, its month so far and the month before.
+        </p>
+      </div>
+      <div className="toolbar">
+        <div className="field field-inline">
+          <label htmlFor="reports-date">Date</label>
+          <input
+            id="reports-date"
+            name="date"
+            type="date"
+            max={today}
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            {...dateProblemProps}
+          />
+        </div>
       </div>
       {content}
     </section>

@@ -73,7 +73,7 @@ export default function ReadingItem({
 
   if (mode === 'delete') {
     return (
-      <li>
+      <li className="reading-confirming">
         {summary}
         <div className="reading-actions" role="group" aria-labelledby={`${id}-question`}>
           <span id={`${id}-question`} className="reading-question">
@@ -122,7 +122,7 @@ export default function ReadingItem({
         <button
           ref={deleteRef}
           type="button"
-          className="button button-secondary button-small"
+          className="button button-danger-outline button-small"
           aria-label={`Delete ${label} reading`}
           disabled={deleting}
           onClick={onAskDelete}

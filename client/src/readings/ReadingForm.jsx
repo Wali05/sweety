@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import { isUnauthorized } from '../api/client.js';
 import { useAuth } from '../auth/AuthContext.jsx';
+import Alert from '../ui/Alert.jsx';
 import {
   MAX_READINGS_PER_DAY,
   MAX_VALUE,
@@ -257,21 +258,9 @@ export default function ReadingForm({
         />
         <FieldError id={`${id}-value-error`} message={errors.value} />
       </div>
-      {dayIsFull && (
-        <p className="alert alert-info" role="status">
-          {MESSAGES.maxPerDay}
-        </p>
-      )}
-      {serverError && (
-        <p className="alert alert-error" role="alert">
-          {serverError}
-        </p>
-      )}
-      {status && (
-        <p className="alert alert-success" role="status">
-          {status}
-        </p>
-      )}
+      {dayIsFull && <Alert kind="info">{MESSAGES.maxPerDay}</Alert>}
+      {serverError && <Alert>{serverError}</Alert>}
+      {status && <Alert kind="success">{status}</Alert>}
       <div className="actions">
         <button type="submit" className="button" disabled={saving || dayIsFull}>
           {saving ? 'Saving…' : submitLabel}
