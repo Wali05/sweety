@@ -4,6 +4,9 @@ import {
   apiRequest,
   createReading,
   deleteReading,
+  fetchDailyReport,
+  fetchMonthToDateReport,
+  fetchPreviousMonthReport,
   listReadings,
   signup,
   updateReading,
@@ -104,5 +107,42 @@ describe('readings api', () => {
       ['PATCH', '/readings/r1', { value: 160 }],
       ['DELETE', '/readings/r1', undefined],
     ]);
+  });
+});
+
+describe('reports api', () => {
+  const summary = { date: '2026-10-15', count: 0, empty: true };
+
+  it('fetches each report for a date', async () => {
+    const fetchMock = vi.fn(async (path) => jsonResponse(200, { ...summary, path }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const date = '2026-10-15';
+    expect(await fetchDailyReport('tok', { date })).toEqual({
+      ...summary,
+      path: '/reports/daily?date=2026-10-15',
+    });
+    expect(await fetchMonthToDateReport('tok', { date })).toEqual({
+      ...summary,
+      path: '/reports/month-to-date?date=2026-10-15',
+    });
+    expect(await fetchPreviousMonthReport('tok', { date })).toEqual({
+      ...summary,
+      path: '/reports/previous-month?date=2026-10-15',
+    });
+
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init.method).toBe('GET');
+      expect(init.headers.Authorization).toBe('Bearer tok');
+    }
+  });
+
+  it("leaves the date out to get the server's today", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(200, summary));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchDailyReport('tok');
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/reports/daily');
   });
 });

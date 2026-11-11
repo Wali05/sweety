@@ -35,6 +35,7 @@ export default function Layout() {
               <>
                 <NavLink to="/dashboard">Dashboard</NavLink>
                 <NavLink to="/readings">Readings</NavLink>
+                <NavLink to="/reports">Reports</NavLink>
                 <span className="nav-user" title={user.name}>
                   {user.name}
                 </span>

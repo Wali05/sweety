@@ -74,7 +74,10 @@ main.container {
 .site-header nav {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  /* Wraps onto a second line on narrow screens. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem 1rem;
   /* Lets a long user name shrink instead of pushing the nav off screen. */
   min-width: 0;
 }
@@ -138,7 +141,8 @@ main.container {
 /* Readings */
 
 /* Two classes, so it wins over the full-width .field input rule further down. */
-.field.readings-date input {
+.field.readings-date input,
+.field.reports-date input {
   width: auto;
 }
 
@@ -215,6 +219,55 @@ main.container {
   margin: 0 0 1rem;
   font-size: 1.2rem;
   line-height: 1.25;
+}
+
+/* Reports */
+
+.report {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.report h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+.report-range {
+  margin: 0.25rem 0 1rem;
+  color: var(--muted);
+}
+
+.report .empty {
+  margin: 0;
+}
+
+.report-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.report-stat dt {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.report-stat dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.report .reading-list {
+  margin-top: 1rem;
 }
 
 /* Route guards */

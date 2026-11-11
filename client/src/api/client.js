@@ -99,3 +99,31 @@ export function updateReading(token, id, changes) {
 export function deleteReading(token, id) {
   return apiRequest(`/readings/${encodeURIComponent(id)}`, { method: 'DELETE', token });
 }
+
+// Reports. Each report is { report, date, from, to, count, highest, lowest,
+// average, empty, message }: date is the selected date, from and to the
+// inclusive range it covers (all 'YYYY-MM-DD'), and the values are in mg/dl
+// with the average rounded to 1 decimal. A range without readings has count 0,
+// null values, empty true and a friendly message (otherwise null).
+// The server uses its own today when date is left out.
+
+function fetchReport(name, token, { date } = {}) {
+  const query = date === undefined ? '' : `?${new URLSearchParams({ date })}`;
+  return apiRequest(`/reports/${name}${query}`, { token });
+}
+
+// The selected date only. This report also has readings, the day's readings
+// in slot order, each as { id, slot, slotLabel, value }.
+export function fetchDailyReport(token, { date } = {}) {
+  return fetchReport('daily', token, { date });
+}
+
+// The 1st of the selected date's month up to the selected date.
+export function fetchMonthToDateReport(token, { date } = {}) {
+  return fetchReport('month-to-date', token, { date });
+}
+
+// The whole calendar month before the selected date's month.
+export function fetchPreviousMonthReport(token, { date } = {}) {
+  return fetchReport('previous-month', token, { date });
+}
