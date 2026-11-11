@@ -20,6 +20,8 @@ describe('protected dashboard', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Loading…');
     expect(await screen.findByRole('heading', { name: 'Hello, Asha' })).toBeInTheDocument();
     expect(screen.getByText('asha@example.test')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Readings' })).not.toHaveAttribute('aria-current');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer stored-token');
   });
