@@ -57,6 +57,21 @@ Run this at the repository root; it installs dependencies for both workspaces.
 | `CLIENT_ORIGIN`  | Origin of the React client, allowed through CORS                                     |
 | `APP_TIMEZONE`   | Optional. Time zone that decides what "today" is for readings (default Asia/Kolkata) |
 
+### Demo data
+
+To try the app with sample data, after the migrations:
+
+```sh
+npm run db:seed
+```
+
+This creates a demo user you can log in with:
+
+- **Email:** `demo@sweety.local`
+- **Password:** `demo1234`
+
+and gives it readings for every day of the previous month and the current month up to today ("today" in `APP_TIMEZONE`): mostly full days, some days with only 2 or 3 readings and a few with none, with values typical of a type 2 patient plus the occasional high and low. The values are generated from a fixed seed, so they are the same on every run. Running it again keeps the user, resets its password and replaces only its readings; no other users are touched.
+
 ## Running
 
 Start the API server (it restarts when a file changes):
@@ -266,6 +281,7 @@ The server tests use Node's built-in test runner (`node:test`). The API tests ad
 | `server/test/readings.test.js`     | API tests for the readings endpoints                      |
 | `server/test/reports-unit.test.js` | Unit tests for the report date ranges and summary numbers |
 | `server/test/reports.test.js`      | API tests for the reports endpoints                       |
+| `server/test/seed.test.js`         | Unit tests for the demo data generator                    |
 
 The API tests run against the real database from `DATABASE_URL`, so it must be set up and migrated first (see [Database setup](#database-setup)). Each test signs up its own users with unique `@example.test` emails and removes them, along with their readings, when the run finishes; no other data is touched.
 
