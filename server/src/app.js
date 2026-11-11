@@ -6,6 +6,7 @@ import config from './config.js';
 import pool from './db/pool.js';
 import authRoutes from './routes/auth.js';
 import readingRoutes from './routes/readings.js';
+import reportRoutes from './routes/reports.js';
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.get('/health', async (req, res) => {
 
 app.use('/auth', authRoutes);
 app.use('/readings', readingRoutes);
+app.use('/reports', reportRoutes);
 
 // Unknown routes
 app.use((req, res) => {

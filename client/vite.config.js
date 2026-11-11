@@ -15,6 +15,7 @@ export default defineConfig({
     proxy: {
       '/auth': API_TARGET,
       '/readings': API_TARGET,
+      '/reports': API_TARGET,
       '/health': API_TARGET,
     },
   },
