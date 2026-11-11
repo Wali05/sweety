@@ -263,6 +263,35 @@ The date picker's maximum and the browser's future-date check use the browser's 
 
 The dev server proxies `/auth`, `/readings`, `/reports` and `/health` to the API at http://localhost:3000, so the client calls the API with same-origin paths. `/readings` and `/reports` are both API paths and client pages, so for them the proxy checks the `Accept` header: a request that accepts `text/html` (the browser opening or reloading the page) gets the app, and the client's API calls, which send `Accept: application/json`, go to the server. The proxy target is set in `client/vite.config.js`; change it there if you run the API on a different `PORT`.
 
+## Running with Docker
+
+`docker-compose.yml` at the repository root starts PostgreSQL, the API and the built client. No local Node.js or PostgreSQL is needed:
+
+```sh
+docker compose up --build
+```
+
+- **App:** http://localhost:8080 (the client, served by nginx)
+- **API:** http://localhost:3000 (also reachable through the client, e.g. http://localhost:8080/health)
+- **PostgreSQL:** `localhost:5432`, user, password and database `sweety`, so the same database also works with `npm run dev:server` and the default `DATABASE_URL`
+
+The server waits until the database is healthy, applies the migrations and then starts the API. nginx serves the client and forwards `/auth`, `/readings`, `/reports` and `/health` to the server the same way the Vite dev proxy does (including the `Accept` check for `/readings` and `/reports`), so the browser talks to one origin and the client uses the same relative paths as in development. The client has no API URL setting to change.
+
+The database is not seeded automatically. To add the [demo user](#demo-data):
+
+```sh
+docker compose exec server npm run db:seed
+```
+
+To stop the containers, and to also delete the database volume for a fresh start:
+
+```sh
+docker compose down
+docker compose down -v
+```
+
+`JWT_SECRET` defaults to a dev-only value in `docker-compose.yml`. For anything beyond local use, set it to a long random string in the shell or in the root `.env`, which Docker Compose reads for `JWT_SECRET`, `JWT_EXPIRES_IN` and `APP_TIMEZONE`. `DATABASE_URL` and `CLIENT_ORIGIN` are fixed in the compose file. `.env` itself never goes into an image (see `.dockerignore`).
+
 ## Tests
 
 ```sh
