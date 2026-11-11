@@ -2,7 +2,7 @@
 
 Sweety is a blood glucose tracker. A patient records up to 4 blood glucose readings per day and views daily, month-to-date, and previous-month reports.
 
-The project is in active development: this repository currently contains the monorepo scaffold, the API server (sign-up and login, readings, and reports), the database schema, and a React client with sign-up, login and a placeholder dashboard; features will land incrementally.
+The project is in active development: this repository currently contains the monorepo scaffold, the API server (sign-up and login, readings, and reports), the database schema, and a React client with sign-up, login and a readings page for viewing, adding, editing and deleting a day's readings. Reports are not in the client yet.
 
 ## Stack
 
@@ -218,14 +218,26 @@ npm run dev:client
 
 It serves on http://localhost:5173, which is the default `CLIENT_ORIGIN`. If that port is taken, the command fails rather than picking another one.
 
-The client has a home page (`/`) and sign-up (`/signup`) and login (`/login`) pages that call the auth API:
+The client has a home page (`/`), sign-up (`/signup`) and login (`/login`) pages that call the auth API, a dashboard (`/dashboard`) and a readings page (`/readings`):
 
 - After signing up or logging in, the token is kept in `localStorage` under `sweety.token`, so the session survives a reload. On start-up the client checks a stored token with `GET /auth/me` and removes it if the server answers `401`.
-- The dashboard (`/dashboard`) is only for logged-in users. Anyone else is sent to the login page and brought back afterwards; logged-in users who open `/login` or `/signup` go straight to the dashboard. The dashboard is a placeholder for now; readings and reports come next.
+- The dashboard and the readings page are only for logged-in users. Anyone else is sent to the login page and brought back afterwards; logged-in users who open `/login` or `/signup` go straight to the dashboard. The dashboard greets the user and links to the readings page; reports come next.
 - **Log out** in the header removes the token and returns to the login page.
 - Validation messages come from the server and are shown as they are. A few checks (missing fields, an email that is not valid on sign-up, a password shorter than 8 characters) run in the browser first, with the same messages, so they don't need a request.
 
-The dev server proxies `/auth`, `/readings`, `/reports` and `/health` to the API at http://localhost:3000, so later client code can call the API with same-origin paths. The proxy target is set in `client/vite.config.js`; change it there if you run the API on a different `PORT`.
+The readings page is linked from the header and the dashboard:
+
+- Pick a date (today to start with; the picker stops at today) to see that day's readings in slot order with a count such as `3 of 4 readings`, or `No readings for this date yet.`
+- **Add a reading**, below the list, takes a date, a time slot and a value in mg/dl. It starts on the page's date and the first free slot, and marks the slots already used on its date as taken. After a save the list is fetched again and the page moves to the saved reading's date. When the form's date already has 4 readings, it shows `You can add only 4 readings per day.` and only the date can be changed.
+- **Edit** opens the same form inside the row, one row at a time. Only the changed fields are sent; saving with nothing changed just closes the form. If the date changes, the page moves to the new date.
+- **Delete** asks `Delete this reading?` and sends the request only after it is confirmed.
+- These checks run in the browser before any request, with the server's messages: `Please choose a date.`, `Date cannot be in the future.`, the slot already used on that date (e.g. `You already have an After lunch reading for this date.`), `Please enter a glucose value.` and `Value must be between 40 and 600 mg/dl.` (whole numbers only).
+- The server remains the source of truth and checks everything again. When it refuses a save or delete, its message is shown as it is, for example the `409` for a slot saved from another tab after the list loaded, or `Reading not found.` for a reading already deleted.
+- If any readings request gets a `401` (the token has expired or is no longer valid), the client logs out and shows the login page, which leads back to `/readings` after logging in again.
+
+The date picker's maximum and the browser's future-date check use the browser's local date, while the server decides what "today" is in `APP_TIMEZONE` (Asia/Kolkata by default). They agree when the browser is in that time zone. In another time zone they can be a day apart for part of the day: the server may then refuse a date the browser allowed (with `Date cannot be in the future.`), or the picker may not yet offer a date the server would accept.
+
+The dev server proxies `/auth`, `/readings`, `/reports` and `/health` to the API at http://localhost:3000, so the client calls the API with same-origin paths. `/readings` is both an API path and a client page, so for it the proxy checks the `Accept` header: a request that accepts `text/html` (the browser opening or reloading the page) gets the app, and the client's API calls, which send `Accept: application/json`, go to the server. The proxy target is set in `client/vite.config.js`; change it there if you run the API on a different `PORT`.
 
 ## Tests
 
@@ -258,14 +270,20 @@ npm test --workspace server
 
 The client tests use Vitest and React Testing Library in a jsdom environment. `fetch` is mocked in every test, so they need neither the API server nor the database. Most of them render the whole app (`<App />` inside a `MemoryRouter` and the `AuthProvider`) and use it the way a person would: typing into the forms and clicking buttons.
 
-| File                                       | Covers                                                                            |
-| ------------------------------------------ | --------------------------------------------------------------------------------- |
-| `client/src/__tests__/apiClient.test.js`   | API client: JSON body and Bearer header, server error messages, network failures  |
-| `client/src/__tests__/Login.test.jsx`      | Login form checks, server errors, storing the token and landing on the dashboard  |
-| `client/src/__tests__/Signup.test.jsx`     | Sign-up password length check and the server message for an email already in use |
-| `client/src/__tests__/routeGuard.test.jsx` | Protected dashboard: logged-out redirect, session restore, rejected token, logout |
+| File                                              | Tests | Covers                                                                                                                                      |
+| ------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client/src/__tests__/apiClient.test.js`          | 5     | API client: JSON body and Bearer header, server error messages, network failures, and the readings calls (list by date, create, update, delete) |
+| `client/src/__tests__/Login.test.jsx`             | 3     | Login form checks, server errors, storing the token and landing on the dashboard                                                            |
+| `client/src/__tests__/Signup.test.jsx`            | 2     | Sign-up password length check and the server message for an email already in use                                                           |
+| `client/src/__tests__/routeGuard.test.jsx`        | 4     | Protected dashboard: logged-out redirect, session restore, rejected token, logout                                                           |
+| `client/src/__tests__/Readings.test.jsx`          | 5     | Readings page: the day's list in slot order with the count, the empty state, picking another date, a failed load, logout on `401`, links from the header and dashboard |
+| `client/src/__tests__/ReadingForm.test.jsx`       | 9     | Add form: browser checks for the value, a future date and a taken slot, the server's message, saving and refreshing the list, saving to another date, the 4 per day limit, logout on `401` |
+| `client/src/__tests__/ReadingEditDelete.test.jsx` | 12    | Inline edit (only changed fields sent, the same browser checks, the server's message, cancel, saving with nothing changed, one row at a time, moving to a new date) and delete (confirm, cancel, the server's message), logout on `401` for both |
+| `client/src/__tests__/slots.test.js`              | 4     | Slot keys, labels and order, sorting by slot, a or an in the duplicate slot message, the browser's local date                              |
 
-The test setup and the shared helper that renders the app and mocks `fetch` are in `client/src/test/`. To run only the client tests:
+That is 44 client tests in 8 files.
+
+The test setup and the shared helpers (rendering the app, mocking `fetch`, reading the rows of the readings list) are in `client/src/test/`. To run only the client tests:
 
 ```sh
 npm test --workspace client

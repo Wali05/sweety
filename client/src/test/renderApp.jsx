@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -52,4 +52,16 @@ export function mockApi(routes = {}) {
 // The parsed JSON body of the nth fetch call.
 export function requestBody(fetchMock, n = 0) {
   return JSON.parse(fetchMock.mock.calls[n][1].body);
+}
+
+// Each row of the readings list as 'Slot: value', e.g.
+// 'Morning (fasting): 95 mg/dl'. Read from the row's slot and value elements,
+// so the text of its buttons is left out. A row with its edit form open has
+// neither and gives null.
+export function readingRows() {
+  return screen.getAllByRole('listitem').map((item) => {
+    const slot = item.querySelector('.reading-slot');
+    const value = item.querySelector('.reading-value');
+    return slot && value ? `${slot.textContent}: ${value.textContent}` : null;
+  });
 }

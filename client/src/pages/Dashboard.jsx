@@ -8,8 +8,8 @@ export default function Dashboard() {
     <section className="dashboard">
       <h1>Hello, {user.name}</h1>
       <p>
-        See your blood glucose readings day by day. Adding readings and viewing
-        reports are coming next.
+        Record, edit and review your blood glucose readings day by day. Reports
+        are coming next.
       </p>
       <div className="actions">
         <Link to="/readings" className="button">

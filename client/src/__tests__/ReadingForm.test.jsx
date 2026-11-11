@@ -1,7 +1,14 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { slotLabel } from '../readings/slots.js';
-import { ASHA, TOKEN_KEY, mockApi, renderApp, requestBody } from '../test/renderApp.jsx';
+import {
+  ASHA,
+  TOKEN_KEY,
+  mockApi,
+  readingRows,
+  renderApp,
+  requestBody,
+} from '../test/renderApp.jsx';
 
 const ME = { 'GET /auth/me': { status: 200, body: { user: ASHA } } };
 const TODAY = '2026-10-15';
@@ -174,11 +181,7 @@ describe('Add a reading form', () => {
 
     expect(await screen.findByText('2 of 4 readings')).toBeInTheDocument();
     expect(requestBody(fetchMock, 2)).toEqual({ date: TODAY, slot: 'after_breakfast', value: 140 });
-    const items = screen.getAllByRole('listitem').map((item) => item.textContent);
-    expect(items).toEqual([
-      'Morning (fasting)95 mg/dlEditDelete',
-      'After breakfast140 mg/dlEditDelete',
-    ]);
+    expect(readingRows()).toEqual(['Morning (fasting): 95 mg/dl', 'After breakfast: 140 mg/dl']);
     expect(screen.getByText('Reading saved.')).toHaveAttribute('role', 'status');
     expect(valueInput()).toHaveValue('');
     expect(slotSelect()).toHaveValue('after_lunch');

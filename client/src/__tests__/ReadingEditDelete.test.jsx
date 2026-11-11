@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { slotLabel } from '../readings/slots.js';
-import { ASHA, TOKEN_KEY, mockApi, renderApp } from '../test/renderApp.jsx';
+import { ASHA, TOKEN_KEY, mockApi, readingRows, renderApp } from '../test/renderApp.jsx';
 
 const ME = { 'GET /auth/me': { status: 200, body: { user: ASHA } } };
 const TODAY = '2026-10-15';
@@ -41,7 +41,6 @@ async function openReadings(count) {
   return user;
 }
 
-const rows = () => screen.getAllByRole('listitem').map((item) => item.textContent);
 const editButton = (label) => screen.getByRole('button', { name: `Edit ${label} reading` });
 const deleteButton = (label) => screen.getByRole('button', { name: `Delete ${label} reading` });
 const editForm = (label) => screen.getByRole('form', { name: `Edit ${label} reading` });
@@ -95,10 +94,7 @@ describe('Editing and deleting readings', () => {
     await user.click(within(form).getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
-      expect(rows()).toEqual([
-        'Morning (fasting)110 mg/dlEditDelete',
-        'After lunch151 mg/dlEditDelete',
-      ])
+      expect(readingRows()).toEqual(['Morning (fasting): 110 mg/dl', 'After lunch: 151 mg/dl'])
     );
     expect(screen.getByText('Reading updated.')).toHaveAttribute('role', 'status');
     expect(queryEditForm('Morning (fasting)')).not.toBeInTheDocument();
@@ -179,7 +175,7 @@ describe('Editing and deleting readings', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(queryEditForm('Morning (fasting)')).not.toBeInTheDocument();
-    expect(rows()).toEqual(['Morning (fasting)95 mg/dlEditDelete']);
+    expect(readingRows()).toEqual(['Morning (fasting): 95 mg/dl']);
     expect(editButton('Morning (fasting)')).toHaveFocus();
     // Only /auth/me and today's list.
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -225,7 +221,7 @@ describe('Editing and deleting readings', () => {
     await user.click(editButton('After lunch'));
 
     expect(queryEditForm('Morning (fasting)')).not.toBeInTheDocument();
-    expect(rows()[0]).toBe('Morning (fasting)95 mg/dlEditDelete');
+    expect(readingRows()).toEqual(['Morning (fasting): 95 mg/dl', null]);
     expect(within(editForm('After lunch')).getByLabelText('Value (mg/dl)')).toHaveFocus();
   });
 
@@ -255,10 +251,7 @@ describe('Editing and deleting readings', () => {
 
     expect(await screen.findByText('2 of 4 readings')).toBeInTheDocument();
     expect(screen.getByLabelText('Date')).toHaveValue('2026-10-01');
-    expect(rows()).toEqual([
-      'Morning (fasting)101 mg/dlEditDelete',
-      'After dinner180 mg/dlEditDelete',
-    ]);
+    expect(readingRows()).toEqual(['Morning (fasting): 101 mg/dl', 'After dinner: 180 mg/dl']);
     expect(screen.getByText('Reading updated.')).toHaveAttribute('role', 'status');
     expect(JSON.parse(callsWith(fetchMock, 'PATCH')[0][1].body)).toEqual({ date: '2026-10-01' });
   });
@@ -298,8 +291,8 @@ describe('Editing and deleting readings', () => {
 
     await user.click(deleteButton('After lunch'));
 
+    expect(readingRows()[1]).toBe('After lunch: 151 mg/dl');
     const row = screen.getAllByRole('listitem')[1];
-    expect(row).toHaveTextContent('After lunch151 mg/dl');
     expect(within(row).getByRole('group', { name: 'Delete this reading?' })).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: 'Cancel' })).toHaveFocus();
     expect(callsWith(fetchMock, 'DELETE')).toHaveLength(0);
@@ -307,7 +300,7 @@ describe('Editing and deleting readings', () => {
     await user.click(within(row).getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText('1 of 4 readings')).toBeInTheDocument();
-    expect(rows()).toEqual(['Morning (fasting)95 mg/dlEditDelete']);
+    expect(readingRows()).toEqual(['Morning (fasting): 95 mg/dl']);
     expect(screen.getByText('Reading deleted.')).toHaveAttribute('role', 'status');
     const deletes = callsWith(fetchMock, 'DELETE');
     expect(deletes).toHaveLength(1);
@@ -329,10 +322,7 @@ describe('Editing and deleting readings', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.queryByText('Delete this reading?')).not.toBeInTheDocument();
-    expect(rows()).toEqual([
-      'Morning (fasting)95 mg/dlEditDelete',
-      'After lunch151 mg/dlEditDelete',
-    ]);
+    expect(readingRows()).toEqual(['Morning (fasting): 95 mg/dl', 'After lunch: 151 mg/dl']);
     expect(deleteButton('After lunch')).toHaveFocus();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -356,7 +346,7 @@ describe('Editing and deleting readings', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Reading not found.');
     expect(await screen.findByText('1 of 4 readings')).toBeInTheDocument();
-    expect(rows()).toEqual(['Morning (fasting)95 mg/dlEditDelete']);
+    expect(readingRows()).toEqual(['Morning (fasting): 95 mg/dl']);
     expect(screen.queryByText('Reading deleted.')).not.toBeInTheDocument();
   });
 

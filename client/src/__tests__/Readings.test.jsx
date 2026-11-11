@@ -1,6 +1,6 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ASHA, TOKEN_KEY, mockApi, renderApp } from '../test/renderApp.jsx';
+import { ASHA, TOKEN_KEY, mockApi, readingRows, renderApp } from '../test/renderApp.jsx';
 
 const ME = { 'GET /auth/me': { status: 200, body: { user: ASHA } } };
 
@@ -40,11 +40,10 @@ describe('Readings page', () => {
     expect(screen.getByLabelText('Date')).toHaveValue('2026-10-15');
     expect(screen.getByLabelText('Date')).toHaveAttribute('max', '2026-10-15');
 
-    const items = screen.getAllByRole('listitem').map((item) => item.textContent);
-    expect(items).toEqual([
-      'Morning (fasting)95 mg/dlEditDelete',
-      'After lunch151 mg/dlEditDelete',
-      'After dinner180 mg/dlEditDelete',
+    expect(readingRows()).toEqual([
+      'Morning (fasting): 95 mg/dl',
+      'After lunch: 151 mg/dl',
+      'After dinner: 180 mg/dl',
     ]);
     // Each row's buttons name the slot they act on.
     expect(screen.getByRole('button', { name: 'Edit After lunch reading' })).toBeInTheDocument();
@@ -71,8 +70,7 @@ describe('Readings page', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading readings…');
     expect(await screen.findByText('1 of 4 readings')).toBeInTheDocument();
-    const item = within(screen.getByRole('list')).getByRole('listitem');
-    expect(item).toHaveTextContent('After breakfast140 mg/dl');
+    expect(readingRows()).toEqual(['After breakfast: 140 mg/dl']);
     expect(screen.queryByText('No readings for this date yet.')).not.toBeInTheDocument();
   });
 

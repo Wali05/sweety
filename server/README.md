@@ -8,4 +8,4 @@ The Sweety API: Node.js + Express backed by PostgreSQL.
 - `src/db/pool.js` is the shared PostgreSQL pool.
 - `src/db/migrate.js` applies the SQL files in `migrations/` in order.
 
-So far the only route is `GET /health`. See the root README for setup.
+Routes: `GET /health`, `/auth` (sign-up, login, me), `/readings` and `/reports`. See the root README for setup and the full API.
