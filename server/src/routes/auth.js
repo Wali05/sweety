@@ -6,7 +6,7 @@ import { requireAuth, signToken } from '../middleware/auth.js';
 
 const router = Router();
 
-const BCRYPT_COST = 10;
+export const BCRYPT_COST = 10;
 const MIN_PASSWORD_LENGTH = 8;
 // bcrypt only looks at the first 72 bytes of a password, so reject longer ones.
 const MAX_PASSWORD_BYTES = 72;
