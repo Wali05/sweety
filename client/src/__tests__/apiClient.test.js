@@ -81,6 +81,23 @@ describe('readings api', () => {
     expect(init.headers.Authorization).toBe('Bearer tok');
   });
 
+  it('lists the readings in a from/to range, or all of them without a filter', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(200, { readings: [reading] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await listReadings('tok', { from: '2026-10-01', to: '2026-10-15' })).toEqual({
+      readings: [reading],
+    });
+    await listReadings('tok', { from: '2026-10-01' });
+    await listReadings('tok');
+
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      '/readings?from=2026-10-01&to=2026-10-15',
+      '/readings?from=2026-10-01',
+      '/readings',
+    ]);
+  });
+
   it('creates, updates and deletes readings', async () => {
     const fetchMock = vi
       .fn()

@@ -74,10 +74,16 @@ export function fetchMe(token) {
 // Readings. Each reading is { id, date, slot, slotLabel, value, createdAt,
 // updatedAt }, with date as 'YYYY-MM-DD' and value in mg/dl.
 
-// Resolves with { readings }: the readings on date (YYYY-MM-DD), in slot
-// order, or all of the user's readings when date is left out.
-export function listReadings(token, { date } = {}) {
-  const query = date === undefined ? '' : `?${new URLSearchParams({ date })}`;
+// Resolves with { readings }: the readings on date (YYYY-MM-DD), or the ones
+// from `from` up to `to` (both optional and inclusive), or all of the user's
+// readings when no filter is given. Newest date first, in slot order within a
+// day.
+export function listReadings(token, { date, from, to } = {}) {
+  const params = new URLSearchParams();
+  for (const [name, value] of Object.entries({ date, from, to })) {
+    if (value !== undefined) params.set(name, value);
+  }
+  const query = params.size > 0 ? `?${params}` : '';
   return apiRequest(`/readings${query}`, { token });
 }
 

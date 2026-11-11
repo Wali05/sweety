@@ -13,6 +13,11 @@
   --success: #067647;
   --success-bg: #ecfdf3;
   --success-border: #abefc6;
+  /* Chart lines, one per reading slot in slot order. */
+  --slot-1: #0f9488;
+  --slot-2: #eb6834;
+  --slot-3: #2a78d6;
+  --slot-4: #9c3587;
 }
 
 *,
@@ -268,6 +273,80 @@ main.container {
 
 .report .reading-list {
   margin-top: 1rem;
+}
+
+/* The chart section only has a line under its heading when there is a chart,
+   so the heading makes the space and that line gives most of it back. */
+.report-chart h2 {
+  margin-bottom: 0.75rem;
+}
+
+.report-chart .report-range {
+  margin-top: -0.5rem;
+}
+
+.report-chart .alert,
+.report-chart .loading {
+  margin: 0;
+}
+
+.month-chart {
+  font-size: 0.875rem;
+}
+
+.month-chart .hint {
+  margin-top: 0.5rem;
+}
+
+/* Legend and tooltip text stays in the text colour; the mark beside it
+   carries the slot's colour. */
+.chart-legend-label {
+  color: var(--text);
+}
+
+.chart-tooltip {
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgb(31 41 51 / 12%);
+}
+
+.chart-tooltip p {
+  margin: 0;
+}
+
+.chart-tooltip-date {
+  font-weight: 600;
+}
+
+.chart-tooltip-empty {
+  color: var(--muted);
+}
+
+.chart-tooltip ul {
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chart-tooltip li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.chart-swatch {
+  flex: none;
+  align-self: center;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+}
+
+/* Grows to push the value to the right. */
+.chart-tooltip-slot {
+  flex: auto;
 }
 
 /* Route guards */

@@ -1,6 +1,8 @@
 import { useId, useState } from 'react';
 import { MESSAGES, sortBySlot, todayLocal } from '../readings/slots.js';
+import MonthSection from '../reports/MonthSection.jsx';
 import { formatRange } from '../reports/formatRange.js';
+import { useMonthReadings } from '../reports/useMonthReadings.js';
 import { useReports } from '../reports/useReports.js';
 
 // Shown if a report without readings comes with no message of its own.
@@ -66,6 +68,8 @@ export default function Reports() {
   else if (date > today) dateProblem = MESSAGES.dateInFuture;
 
   const { reports, error } = useReports(dateProblem ? null : date);
+  // For the chart, loaded alongside the reports.
+  const month = useMonthReadings(dateProblem ? null : date);
 
   let content;
   if (dateProblem) {
@@ -88,6 +92,7 @@ export default function Reports() {
         <ReportSection title="Daily" report={reports.daily} />
         <ReportSection title="Month-to-date" report={reports.monthToDate} />
         <ReportSection title="Previous month" report={reports.previousMonth} />
+        <MonthSection date={date} readings={month.readings} error={month.error} />
       </>
     );
   }
