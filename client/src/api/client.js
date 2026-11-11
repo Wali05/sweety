@@ -14,6 +14,12 @@ export class ApiError extends Error {
   }
 }
 
+// True when a request made with the token got a 401: it has expired or is no
+// longer valid, so the user should be logged out.
+export function isUnauthorized(err) {
+  return err instanceof ApiError && err.status === 401;
+}
+
 // Sends a JSON request and resolves with the parsed response body (null for
 // an empty body, e.g. 204 No Content). Rejects with an ApiError.
 export async function apiRequest(path, { method = 'GET', body, token } = {}) {

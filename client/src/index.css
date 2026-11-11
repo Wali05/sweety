@@ -9,6 +9,9 @@
   --danger: #b42318;
   --danger-bg: #fef3f2;
   --danger-border: #f5c2bd;
+  --success: #067647;
+  --success-bg: #ecfdf3;
+  --success-border: #abefc6;
 }
 
 *,
@@ -175,6 +178,20 @@ main.container {
   color: var(--muted);
 }
 
+.add-reading {
+  margin-top: 2rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.add-reading h2 {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
 /* Route guards */
 
 .loading {
@@ -236,7 +253,8 @@ main.container {
   font-weight: 600;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   padding: 0.5rem 0.6rem;
   font: inherit;
@@ -246,10 +264,22 @@ main.container {
   border-radius: 6px;
 }
 
+.field input:disabled,
+.field select:disabled {
+  color: var(--muted);
+  background: var(--bg);
+  cursor: not-allowed;
+}
+
+.field [aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
 a:focus-visible,
 .button:focus-visible,
 .link-button:focus-visible,
-.field input:focus-visible {
+.field input:focus-visible,
+.field select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -258,6 +288,12 @@ a:focus-visible,
   margin: 0.3rem 0 0;
   font-size: 0.875rem;
   color: var(--muted);
+}
+
+.field-error {
+  margin: 0.3rem 0 0;
+  font-size: 0.875rem;
+  color: var(--danger);
 }
 
 .alert {
@@ -271,6 +307,21 @@ a:focus-visible,
   color: var(--danger);
   background: var(--danger-bg);
   border: 1px solid var(--danger-border);
+  border-left-width: 4px;
+}
+
+.alert-success {
+  color: var(--success);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-left-width: 4px;
+}
+
+/* Something the user needs to know that is not an error. */
+.alert-info {
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-left-width: 4px;
 }
 

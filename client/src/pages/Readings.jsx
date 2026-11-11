@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { ApiError, listReadings } from '../api/client.js';
+import { useState } from 'react';
+import { createReading } from '../api/client.js';
 import { useAuth } from '../auth/AuthContext.jsx';
+import ReadingForm from '../readings/ReadingForm.jsx';
 import {
   MAX_READINGS_PER_DAY,
   MESSAGES,
@@ -8,73 +9,52 @@ import {
   sortBySlot,
   todayLocal,
 } from '../readings/slots.js';
-
-// 401 means the token has expired or is no longer valid.
-function isUnauthorized(err) {
-  return err instanceof ApiError && err.status === 401;
-}
+import { useDayReadings } from '../readings/useDayReadings.js';
 
 export default function Readings() {
-  const { token, logout } = useAuth();
+  const { token } = useAuth();
   const today = todayLocal();
 
   const [date, setDate] = useState(today);
-  // The last response and the date it is for: { date, readings, error }.
-  const [loaded, setLoaded] = useState(null);
 
   // The date input's value is '' while it is empty or only partly filled in.
   let dateProblem = null;
   if (!date) dateProblem = MESSAGES.dateRequired;
   else if (date > today) dateProblem = MESSAGES.dateInFuture;
 
-  useEffect(() => {
-    if (dateProblem) return undefined;
+  const { readings, error, reload } = useDayReadings(dateProblem ? null : date);
 
-    let cancelled = false;
-    listReadings(token, { date })
-      .then(({ readings }) => {
-        if (!cancelled) setLoaded({ date, readings, error: '' });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (isUnauthorized(err)) {
-          // RequireAuth then sends the user to /login and back here afterwards.
-          logout();
-          return;
-        }
-        setLoaded({ date, readings: [], error: err.message });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token, date, dateProblem, logout]);
+  // Show the saved reading's date, with the list fetched again.
+  function handleSaved(reading) {
+    setDate(reading.date);
+    reload();
+  }
 
   let content;
   if (dateProblem) {
     content = <p className="empty">{dateProblem}</p>;
-  } else if (loaded?.date !== date) {
+  } else if (error) {
+    content = (
+      <p className="alert alert-error" role="alert">
+        {error}
+      </p>
+    );
+  } else if (!readings) {
     content = (
       <p className="loading" role="status">
         Loading readings…
       </p>
     );
-  } else if (loaded.error) {
-    content = (
-      <p className="alert alert-error" role="alert">
-        {loaded.error}
-      </p>
-    );
   } else {
-    const readings = sortBySlot(loaded.readings);
+    const sorted = sortBySlot(readings);
     content = (
       <>
-        <p className="reading-count">{`${readings.length} of ${MAX_READINGS_PER_DAY} readings`}</p>
-        {readings.length === 0 ? (
+        <p className="reading-count">{`${sorted.length} of ${MAX_READINGS_PER_DAY} readings`}</p>
+        {sorted.length === 0 ? (
           <p className="empty">No readings for this date yet.</p>
         ) : (
           <ul className="reading-list">
-            {readings.map((reading) => (
+            {sorted.map((reading) => (
               <li key={reading.id}>
                 <span className="reading-slot">{slotLabel(reading.slot)}</span>
                 <span className="reading-value">
@@ -103,6 +83,15 @@ export default function Readings() {
         />
       </div>
       {content}
+      <section className="add-reading" aria-labelledby="add-reading-heading">
+        <h2 id="add-reading-heading">Add a reading</h2>
+        <ReadingForm
+          initialValues={{ date }}
+          dayReadings={dateProblem ? null : { date, readings }}
+          onSave={(values) => createReading(token, values)}
+          onSaved={handleSaved}
+        />
+      </section>
     </section>
   );
 }

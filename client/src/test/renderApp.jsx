@@ -32,13 +32,17 @@ export function jsonResponse(status, body) {
 
 // Replaces fetch with a mock that answers from a table such as
 // { 'POST /auth/login': { status: 200, body: { user, token } } }.
+// A route can also be a function that gets the parsed request body and
+// returns (or resolves with) the answer, e.g. to answer later or to change
+// what a later request returns.
 // Any other request gets a 500 whose message names it, so a missing route
 // shows up in the page instead of as a confusing network error.
 export function mockApi(routes = {}) {
-  const fetchMock = vi.fn(async (path, { method = 'GET' } = {}) => {
+  const fetchMock = vi.fn(async (path, { method = 'GET', body } = {}) => {
     const key = `${method} ${path}`;
-    const route = routes[key];
+    let route = routes[key];
     if (!route) return jsonResponse(500, { error: `Unexpected request: ${key}` });
+    if (typeof route === 'function') route = await route(body && JSON.parse(body));
     return jsonResponse(route.status, route.body);
   });
   vi.stubGlobal('fetch', fetchMock);
