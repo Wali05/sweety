@@ -15,6 +15,9 @@ export const MAX_READINGS_PER_DAY = 4;
 export const MIN_VALUE = 40;
 export const MAX_VALUE = 600;
 
+// Earliest year a reading or report date may have.
+export const MIN_YEAR = 1900;
+
 export const MESSAGES = {
   dateRequired: 'Please choose a date.',
   dateInvalid: 'Date is not valid.',
@@ -60,10 +63,13 @@ export function isRealDate(text) {
   const month = Number(match[2]);
   const day = Number(match[3]);
 
+  // PostgreSQL has no year 0, and Date.UTC reads years below 100 as 19xx
+  // (which breaks the report ranges), so very old years are not valid.
+  if (year < MIN_YEAR) return false;
+
   // Date rolls impossible days over (Feb 30 becomes Mar 2), so the parts
   // only survive the round trip when the date exists.
   const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCFullYear(year); // years below 100 are otherwise read as 19xx
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 

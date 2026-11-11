@@ -46,7 +46,8 @@ test('an invalid date is rejected', async () => {
   const account = await signUpUser();
 
   for (const path of ENDPOINTS) {
-    for (const date of ['2026-02-30', '15-10-2026', 'yesterday']) {
+    // 0000-06-15 and 0001-01-15 once gave a 500 and a 1900 range.
+    for (const date of ['2026-02-30', '2026-13-01', '15-10-2026', 'yesterday', '0000-06-15', '0001-01-15']) {
       const res = await report(account, path, date);
       assert.equal(res.status, 400, `${path} ${date}`);
       assert.equal(res.body.error, 'Date is not valid.');

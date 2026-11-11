@@ -187,6 +187,98 @@ test("another user's reading and a malformed id give 404", async () => {
   assert.equal(malformed.body.error, NOT_FOUND);
 });
 
+test('invalid dates give 400, never 500, on create and list', async () => {
+  const account = await signUpUser();
+
+  for (const date of ['2026-02-30', '2026-13-01', 'not-a-date', '0000-01-01']) {
+    const created = await post(account, { date, slot: 'after_lunch', value: 120 });
+    assert.equal(created.status, 400, date);
+    assert.equal(created.body.error, 'Date is not valid.');
+
+    const listed = await request(app).get(`/readings?date=${date}`).set(auth(account));
+    assert.equal(listed.status, 400, date);
+    assert.equal(listed.body.error, 'Date is not valid.');
+  }
+});
+
+test('string and exponent values are checked like the form does', async () => {
+  const account = await signUpUser();
+
+  for (const value of ['120.5', '1e2', 'abc', true, null]) {
+    const res = await post(account, { date: '2026-10-12', slot: 'after_lunch', value });
+    assert.equal(res.status, 400, JSON.stringify(value));
+  }
+
+  const padded = await post(account, { date: '2026-10-12', slot: 'after_lunch', value: ' 120 ' });
+  assert.equal(padded.status, 201);
+  assert.equal(padded.body.reading.value, 120);
+});
+
+test('editing keeps the slot rules and refuses future dates', async () => {
+  const account = await signUpUser();
+  const date = '2026-10-13';
+  const patch = (id, body) =>
+    request(app).patch(`/readings/${id}`).set(auth(account)).send(body);
+
+  const lunch = await post(account, { date, slot: 'after_lunch', value: 120 });
+  const other = await post(account, { date: '2026-10-14', slot: 'morning_fasting', value: 90 });
+  const otherId = other.body.reading.id;
+
+  // Sending the reading's own date and slot again is not a conflict.
+  const same = await patch(lunch.body.reading.id, { date, slot: 'after_lunch', value: 125 });
+  assert.equal(same.status, 200);
+  assert.equal(same.body.reading.value, 125);
+
+  // Moving another day's reading into a taken slot gives the slot message.
+  const taken = await patch(otherId, { date, slot: 'after_lunch' });
+  assert.equal(taken.status, 409);
+  assert.equal(taken.body.error, DUPLICATE_AFTER_LUNCH);
+
+  // Moving it to a free slot on that date works.
+  const free = await patch(otherId, { date, slot: 'after_dinner' });
+  assert.equal(free.status, 200);
+  assert.equal(free.body.reading.date, date);
+  assert.equal(free.body.reading.slot, 'after_dinner');
+
+  const future = await patch(otherId, { date: nextDay(todayInAppTimezone()) });
+  assert.equal(future.status, 400);
+  assert.equal(future.body.error, 'Date cannot be in the future.');
+
+  const invalid = await patch(otherId, { date: '2026-02-30' });
+  assert.equal(invalid.status, 400);
+  assert.equal(invalid.body.error, 'Date is not valid.');
+});
+
+test('moving a reading onto a full day gives the daily limit message', async () => {
+  const account = await signUpUser();
+
+  for (const slot of SLOT_ORDER) {
+    await post(account, { date: '2026-10-15', slot, value: 110 });
+  }
+  const extra = await post(account, { date: '2026-10-16', slot: 'after_lunch', value: 110 });
+
+  const res = await request(app)
+    .patch(`/readings/${extra.body.reading.id}`)
+    .set(auth(account))
+    .send({ date: '2026-10-15' });
+  assert.equal(res.status, 409);
+  assert.equal(res.body.error, 'You can add only 4 readings per day.');
+});
+
+test('malformed ids give 404 on edit and delete', async () => {
+  const account = await signUpUser();
+
+  for (const id of ['not-a-uuid', '123', 'zzzzzzzz-0000-0000-0000-000000000000']) {
+    const edit = await request(app).patch(`/readings/${id}`).set(auth(account)).send({ value: 100 });
+    assert.equal(edit.status, 404, id);
+    assert.equal(edit.body.error, NOT_FOUND);
+
+    const remove = await request(app).delete(`/readings/${id}`).set(auth(account));
+    assert.equal(remove.status, 404, id);
+    assert.equal(remove.body.error, NOT_FOUND);
+  }
+});
+
 test('edit and delete a reading', async () => {
   const account = await signUpUser();
   const date = '2026-10-11';
