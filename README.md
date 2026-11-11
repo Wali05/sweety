@@ -2,7 +2,7 @@
 
 Sweety is a blood glucose tracker. A patient records up to 4 blood glucose readings per day and views daily, month-to-date, and previous-month reports.
 
-The project is in early development: this repository currently contains the monorepo scaffold, the API server with sign-up and login, the database schema, and a React client shell that is not connected to the API yet; features will land incrementally.
+The project is in active development: this repository currently contains the monorepo scaffold, the API server (sign-up and login, readings, and reports), the database schema, and a React client shell that is not connected to the API yet; features will land incrementally.
 
 ## Stack
 
@@ -72,7 +72,7 @@ curl http://localhost:3000/health
 # {"ok":true,"db":"up"}
 ```
 
-So far the API has this health check, the database schema, and the auth and readings endpoints below; reports are not implemented yet.
+So far the API has this health check, the database schema, and the auth, readings and reports endpoints below.
 
 ### Auth endpoints
 
@@ -131,6 +131,83 @@ Validation rules, checked in this order; the first failure is returned as the er
 - "Today" is decided in the `APP_TIMEZONE` time zone (default Asia/Kolkata), not the time zone of the server machine or the client.
 - `PATCH` validates only the fields that are sent. The two `409` checks run when the date or slot changes and ignore the reading being edited.
 
+### Reports endpoints
+
+All of these need `Authorization: Bearer <token>` (otherwise `401`) and only ever read the logged-in user's own readings.
+
+| Method and path               | Report covers                                    | Success                                | Errors                       |
+| ----------------------------- | ------------------------------------------------ | -------------------------------------- | ---------------------------- |
+| `GET /reports/daily`          | The selected date                                | `200` summary and that day's readings  | `400` invalid or future date |
+| `GET /reports/month-to-date`  | The 1st of the month up to the selected date     | `200` summary                          | `400` invalid or future date |
+| `GET /reports/previous-month` | The whole month before the selected date's month | `200` summary                          | `400` invalid or future date |
+
+Each report takes one optional query parameter:
+
+| Parameter | Value        | Default | Errors                                                                                                  |
+| --------- | ------------ | ------- | ------------------------------------------------------------------------------------------------------- |
+| `date`    | `YYYY-MM-DD` | Today   | `400` `Date is not valid.` for a date that does not exist, `400` `Date cannot be in the future.` after today |
+
+"Today" is decided in the `APP_TIMEZONE` time zone, as for readings.
+
+Date range per report (both ends inclusive), with the selected date 15 Oct 2026 as the example:
+
+| Report           | From                                 | To                               | `?date=2026-10-15`        |
+| ---------------- | ------------------------------------ | -------------------------------- | ------------------------- |
+| `daily`          | The selected date                    | The selected date                | 15 Oct 2026 only          |
+| `month-to-date`  | The 1st of the selected date's month | The selected date                | 1 Oct 2026 to 15 Oct 2026 |
+| `previous-month` | The 1st of the month before          | The last day of the month before | 1 Sep 2026 to 30 Sep 2026 |
+
+The previous month of a January date is December of the year before, and the range always ends on the month's real last day (29 Feb in a leap year).
+
+Every report returns the same summary fields:
+
+- `report`, `date`, `from`, `to`: the report name, the selected date and the range that was used.
+- `count`, `highest`, `lowest`, `average`: the number of readings in the range and their highest, lowest and average value in mg/dl. The average is rounded to 1 decimal.
+- `empty` and `message`: `empty` is `true` when the range has no readings, and `message` then holds a friendly text to show; otherwise `message` is `null`.
+
+The daily report also has `readings`, the day's readings in slot order, each as `{ id, slot, slotLabel, value }`. The other two reports have no `readings` list.
+
+`GET /reports/daily?date=2026-10-15`:
+
+```json
+{
+  "report": "daily",
+  "date": "2026-10-15",
+  "from": "2026-10-15",
+  "to": "2026-10-15",
+  "count": 4,
+  "highest": 180,
+  "lowest": 95,
+  "average": 141.5,
+  "empty": false,
+  "message": null,
+  "readings": [
+    { "id": "5f0c1a52-8f7e-4f1b-9a61-2d3c4b5a6e70", "slot": "morning_fasting", "slotLabel": "Morning (fasting)", "value": 95 },
+    { "id": "0b9d7c3e-1a2f-4c5d-8e6f-7a8b9c0d1e2f", "slot": "after_breakfast", "slotLabel": "After breakfast", "value": 140 },
+    { "id": "c4e8a1b2-3d4f-4a5b-9c6d-7e8f9a0b1c2d", "slot": "after_lunch", "slotLabel": "After lunch", "value": 151 },
+    { "id": "9a7b6c5d-4e3f-4a2b-8c1d-0e9f8a7b6c5d", "slot": "after_dinner", "slotLabel": "After dinner", "value": 180 }
+  ]
+}
+```
+
+When the range has no readings the response is still `200`, with a count of 0 and no numbers. The same daily report for a day without readings:
+
+```json
+{
+  "report": "daily",
+  "date": "2026-10-15",
+  "from": "2026-10-15",
+  "to": "2026-10-15",
+  "count": 0,
+  "highest": null,
+  "lowest": null,
+  "average": null,
+  "empty": true,
+  "message": "No readings for this period yet.",
+  "readings": []
+}
+```
+
 ### Client
 
 Start the React client (a Vite dev server with hot reload):
@@ -143,13 +220,20 @@ It serves on http://localhost:5173, which is the default `CLIENT_ORIGIN`. If tha
 
 The client is only a shell for now: a home page (`/`) and placeholder login (`/login`) and sign-up (`/signup`) pages. The forms are not hooked up to the API yet, so submitting them does nothing.
 
-The dev server proxies `/auth`, `/readings` and `/health` to the API at http://localhost:3000, so later client code can call the API with same-origin paths. The proxy target is set in `client/vite.config.js`; change it there if you run the API on a different `PORT`.
+The dev server proxies `/auth`, `/readings`, `/reports` and `/health` to the API at http://localhost:3000, so later client code can call the API with same-origin paths. The proxy target is set in `client/vite.config.js`; change it there if you run the API on a different `PORT`.
 
 ## Tests
 
-The API tests use Node's built-in test runner (`node:test`) with supertest, which calls the Express app directly without opening a port.
+The tests use Node's built-in test runner (`node:test`). The API tests add supertest, which calls the Express app directly without opening a port.
 
-They run against the real database from `DATABASE_URL`, so it must be set up and migrated first (see [Database setup](#database-setup)). Each test signs up its own users with unique `@example.test` emails and removes them, along with their readings, when the run finishes; no other data is touched.
+| File                               | Covers                                                    |
+| ---------------------------------- | --------------------------------------------------------- |
+| `server/test/validation.test.js`   | Unit tests for the readings validation rules              |
+| `server/test/readings.test.js`     | API tests for the readings endpoints                      |
+| `server/test/reports-unit.test.js` | Unit tests for the report date ranges and summary numbers |
+| `server/test/reports.test.js`      | API tests for the reports endpoints                       |
+
+The API tests run against the real database from `DATABASE_URL`, so it must be set up and migrated first (see [Database setup](#database-setup)). Each test signs up its own users with unique `@example.test` emails and removes them, along with their readings, when the run finishes; no other data is touched.
 
 ```sh
 npm test
