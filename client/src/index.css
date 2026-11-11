@@ -131,6 +131,50 @@ main.container {
   color: var(--muted);
 }
 
+/* Readings */
+
+.readings-date input {
+  width: auto;
+}
+
+.reading-count,
+.empty {
+  color: var(--muted);
+}
+
+.reading-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.reading-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.reading-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.reading-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reading-unit {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 /* Route guards */
 
 .loading {

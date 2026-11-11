@@ -6,6 +6,7 @@ import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import Readings from './pages/Readings.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
         </Route>
         <Route element={<RequireAuth />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/readings" element={<Readings />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>

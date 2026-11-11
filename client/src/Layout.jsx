@@ -34,6 +34,7 @@ export default function Layout() {
             {status === 'authenticated' && (
               <>
                 <NavLink to="/dashboard">Dashboard</NavLink>
+                <NavLink to="/readings">Readings</NavLink>
                 <span className="nav-user" title={user.name}>
                   {user.name}
                 </span>

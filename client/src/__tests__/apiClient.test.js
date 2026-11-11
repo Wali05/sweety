@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, apiRequest, signup } from '../api/client.js';
+import {
+  ApiError,
+  apiRequest,
+  createReading,
+  deleteReading,
+  listReadings,
+  signup,
+  updateReading,
+} from '../api/client.js';
 import { jsonResponse } from '../test/renderApp.jsx';
 
 describe('api client', () => {
@@ -53,5 +61,48 @@ describe('api client', () => {
     expect(error).toBeInstanceOf(ApiError);
     expect(error.status).toBe(0);
     expect(error.message).toBe('Could not reach the server. Please check your connection.');
+  });
+});
+
+describe('readings api', () => {
+  const reading = { id: 'r1', date: '2026-10-15', slot: 'after_lunch', value: 151 };
+
+  it('lists the readings for a date', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { readings: [reading] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await listReadings('tok', { date: '2026-10-15' })).toEqual({ readings: [reading] });
+    const [path, init] = fetchMock.mock.calls[0];
+    expect(path).toBe('/readings?date=2026-10-15');
+    expect(init.method).toBe('GET');
+    expect(init.headers.Authorization).toBe('Bearer tok');
+  });
+
+  it('creates, updates and deletes readings', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(201, { reading }))
+      .mockResolvedValueOnce(jsonResponse(200, { reading: { ...reading, value: 160 } }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(
+      await createReading('tok', { date: '2026-10-15', slot: 'after_lunch', value: 151 })
+    ).toEqual({ reading });
+    expect(await updateReading('tok', 'r1', { value: 160 })).toEqual({
+      reading: { ...reading, value: 160 },
+    });
+    expect(await deleteReading('tok', 'r1')).toBeNull();
+
+    const calls = fetchMock.mock.calls.map(([path, init]) => [
+      init.method,
+      path,
+      init.body && JSON.parse(init.body),
+    ]);
+    expect(calls).toEqual([
+      ['POST', '/readings', { date: '2026-10-15', slot: 'after_lunch', value: 151 }],
+      ['PATCH', '/readings/r1', { value: 160 }],
+      ['DELETE', '/readings/r1', undefined],
+    ]);
   });
 });

@@ -64,3 +64,32 @@ export function login({ email, password }) {
 export function fetchMe(token) {
   return apiRequest('/auth/me', { token });
 }
+
+// Readings. Each reading is { id, date, slot, slotLabel, value, createdAt,
+// updatedAt }, with date as 'YYYY-MM-DD' and value in mg/dl.
+
+// Resolves with { readings }: the readings on date (YYYY-MM-DD), in slot
+// order, or all of the user's readings when date is left out.
+export function listReadings(token, { date } = {}) {
+  const query = date === undefined ? '' : `?${new URLSearchParams({ date })}`;
+  return apiRequest(`/readings${query}`, { token });
+}
+
+// Resolves with { reading }.
+export function createReading(token, { date, slot, value }) {
+  return apiRequest('/readings', { method: 'POST', body: { date, slot, value }, token });
+}
+
+// changes holds any of date, slot and value. Resolves with { reading }.
+export function updateReading(token, id, changes) {
+  return apiRequest(`/readings/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: changes,
+    token,
+  });
+}
+
+// Resolves with null (204 No Content).
+export function deleteReading(token, id) {
+  return apiRequest(`/readings/${encodeURIComponent(id)}`, { method: 'DELETE', token });
+}

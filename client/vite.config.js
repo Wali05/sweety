@@ -3,6 +3,16 @@ import react from '@vitejs/plugin-react';
 
 const API_TARGET = 'http://localhost:3000';
 
+// For API paths that are also client pages (/readings): a browser loading the
+// page asks for HTML and gets the app, while API calls (Accept:
+// application/json) still go to the server.
+const apiOrPage = {
+  target: API_TARGET,
+  bypass(req) {
+    if (req.headers.accept?.includes('text/html')) return '/index.html';
+  },
+};
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -14,7 +24,7 @@ export default defineConfig({
     // same-origin URLs like /auth/login during development.
     proxy: {
       '/auth': API_TARGET,
-      '/readings': API_TARGET,
+      '/readings': apiOrPage,
       '/reports': API_TARGET,
       '/health': API_TARGET,
     },
