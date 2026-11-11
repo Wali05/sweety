@@ -1,36 +1,93 @@
-import { Link } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext.jsx';
+
+// Same messages as the server; it still validates everything itself.
+function validateLogin({ email, password }) {
+  if (!email) return 'Email is required.';
+  if (password === '') return 'Password is required.';
+  return null;
+}
 
 export default function Login() {
-  // Placeholder: the form is not connected to the API yet.
-  function handleSubmit(event) {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const passwordRef = useRef(null);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // A route guard sends people here with the page they wanted in state.from.
+  const redirectTo = location.state?.from?.pathname || '/dashboard';
+
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (submitting) return;
+
+    const trimmedEmail = email.trim();
+    const problem = validateLogin({ email: trimmedEmail, password });
+    if (problem) {
+      setError(problem);
+      return;
+    }
+
+    setError('');
+    setSubmitting(true);
+    try {
+      await login(trimmedEmail, password);
+    } catch (err) {
+      setError(err.message);
+      setPassword('');
+      setSubmitting(false);
+      passwordRef.current?.focus();
+      return;
+    }
+    navigate(redirectTo, { replace: true });
   }
 
   return (
     <section className="card">
       <h1>Log in</h1>
-      <p className="notice">Logging in is not available yet.</p>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div className="field">
           <label htmlFor="login-email">Email</label>
-          <input id="login-email" name="email" type="email" autoComplete="email" required />
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
         </div>
         <div className="field">
           <label htmlFor="login-password">Password</label>
           <input
+            ref={passwordRef}
             id="login-password"
             name="password"
             type="password"
             autoComplete="current-password"
             required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
           />
         </div>
-        <button type="submit" className="button">
-          Log in
+        {error && (
+          <p className="alert alert-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="button" disabled={submitting}>
+          {submitting ? 'Logging in…' : 'Log in'}
         </button>
       </form>
       <p className="alt">
-        New to Sweety? <Link to="/signup">Sign up</Link>
+        New to Sweety? <Link to="/signup" state={location.state}>Sign up</Link>
       </p>
     </section>
   );

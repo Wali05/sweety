@@ -6,6 +6,9 @@
   --border: #d5dae0;
   --accent: #0f766e;
   --accent-dark: #0b5a54;
+  --danger: #b42318;
+  --danger-bg: #fef3f2;
+  --danger-border: #f5c2bd;
 }
 
 *,
@@ -108,9 +111,14 @@ main.container {
   cursor: pointer;
 }
 
-.button:hover {
+.button:hover:not(:disabled) {
   background: var(--accent-dark);
   border-color: var(--accent-dark);
+}
+
+.button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .button-secondary {
@@ -166,13 +174,18 @@ a:focus-visible,
   color: var(--muted);
 }
 
-.notice {
-  margin: 0 0 1.25rem;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.9rem;
-  color: var(--muted);
-  background: var(--bg);
+.alert {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
   border-radius: 6px;
+}
+
+.alert-error {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  border-left-width: 4px;
 }
 
 .card form .button {
