@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { afterAuthPath } from '../auth/redirects.js';
 
 const MIN_PASSWORD_LENGTH = 8;
 // Same pattern as the server: something@something.something with no spaces.
@@ -30,8 +31,7 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // A route guard sends people here with the page they wanted in state.from.
-  const redirectTo = location.state?.from?.pathname || '/dashboard';
+  const redirectTo = afterAuthPath(location);
 
   async function handleSubmit(event) {
     event.preventDefault();

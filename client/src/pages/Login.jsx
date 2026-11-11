@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { afterAuthPath } from '../auth/redirects.js';
 
 // Same messages as the server; it still validates everything itself.
 function validateLogin({ email, password }) {
@@ -20,8 +21,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // A route guard sends people here with the page they wanted in state.from.
-  const redirectTo = location.state?.from?.pathname || '/dashboard';
+  const redirectTo = afterAuthPath(location);
 
   async function handleSubmit(event) {
     event.preventDefault();

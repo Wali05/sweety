@@ -69,18 +69,47 @@ main.container {
 
 .site-header nav {
   display: flex;
+  align-items: center;
   gap: 1rem;
+  /* Lets a long user name shrink instead of pushing the nav off screen. */
+  min-width: 0;
 }
 
 .site-header nav a {
   color: var(--text);
   text-decoration: none;
+  white-space: nowrap;
   padding: 0.25rem 0;
   border-bottom: 2px solid transparent;
 }
 
 .site-header nav a:hover,
 .site-header nav a.active {
+  border-bottom-color: var(--accent);
+}
+
+.nav-user {
+  min-width: 0;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+/* A button that looks like the nav links. */
+.link-button {
+  padding: 0.25rem 0;
+  font: inherit;
+  color: var(--text);
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.link-button:hover {
   border-bottom-color: var(--accent);
 }
 
@@ -94,6 +123,18 @@ main.container {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+/* Dashboard */
+
+.dashboard .account {
+  color: var(--muted);
+}
+
+/* Route guards */
+
+.loading {
+  color: var(--muted);
 }
 
 /* Buttons */
@@ -163,6 +204,7 @@ main.container {
 
 a:focus-visible,
 .button:focus-visible,
+.link-button:focus-visible,
 .field input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
