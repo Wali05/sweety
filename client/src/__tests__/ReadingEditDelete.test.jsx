@@ -161,6 +161,54 @@ describe('Editing and deleting readings', () => {
     expect(screen.queryByText('Reading updated.')).not.toBeInTheDocument();
   });
 
+  it('disables Save and Cancel while an edit is saving', async () => {
+    const saved = [reading('r1', TODAY, 'morning_fasting', 95)];
+    let finishSave;
+    const update = patchIn(saved, 'r1')['PATCH /readings/r1'];
+    mockApi({
+      ...ME,
+      ...listOn(TODAY, saved),
+      'PATCH /readings/r1': async (changes) => {
+        await new Promise((resolve) => {
+          finishSave = resolve;
+        });
+        return update(changes);
+      },
+    });
+    const user = await openReadings(1);
+
+    await user.click(editButton('Morning (fasting)'));
+    const form = editForm('Morning (fasting)');
+    const value = within(form).getByLabelText('Value (mg/dl)');
+    await user.clear(value);
+    await user.type(value, '100');
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+
+    expect(within(form).getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    expect(within(form).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    finishSave();
+
+    await waitFor(() => expect(readingRows()).toEqual(['Morning (fasting): 100 mg/dl']));
+    expect(queryEditForm('Morning (fasting)')).not.toBeInTheDocument();
+  });
+
+  it('stops an edit that moves a reading to a future date', async () => {
+    const fetchMock = mockApi({
+      ...ME,
+      ...listOn(TODAY, [reading('r1', TODAY, 'morning_fasting', 95)]),
+    });
+    const user = await openReadings(1);
+
+    await user.click(editButton('Morning (fasting)'));
+    const form = editForm('Morning (fasting)');
+    const date = within(form).getByLabelText('Reading date');
+    fireEvent.change(date, { target: { value: '2026-10-16' } });
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+
+    expect(date).toHaveAccessibleDescription('Date cannot be in the future.');
+    expect(callsWith(fetchMock, 'PATCH')).toHaveLength(0);
+  });
+
   it('leaves the row unchanged without a request when an edit is cancelled', async () => {
     const fetchMock = mockApi({
       ...ME,

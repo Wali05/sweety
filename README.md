@@ -116,7 +116,7 @@ All of these need `Authorization: Bearer <token>` (otherwise `401`) and only wor
 | `DELETE /readings/:id` | none                           | `204` no body        | `404` `Reading not found.`                                  |
 
 - `reading` is `{ id, date, slot, slotLabel, value, createdAt, updatedAt }`. `date` is always a plain `YYYY-MM-DD` string and `value` is a whole number of mg/dl.
-- `GET /readings` returns all of the user's readings, newest date first and in slot order within a day. Filter with `?date=YYYY-MM-DD` for one day, or `?from=` and/or `?to=` for an inclusive range (`date` wins if both are given). A date that does not exist, or `from` after `to`, gives `400` `Date is not valid.`
+- `GET /readings` returns all of the user's readings, newest date first and in slot order within a day. Filter with `?date=YYYY-MM-DD` for one day, or `?from=` and/or `?to=` for an inclusive range (`date` wins if both are given). A date that does not exist or is before 1900, or `from` after `to`, gives `400` `Date is not valid.`
 - A reading that belongs to another user, an unknown id and a malformed id all give `404` `Reading not found.`, so ids are never revealed.
 
 Slots:
@@ -133,7 +133,7 @@ Validation rules, checked in this order; the first failure is returned as the er
 | Rule                                         | Status | Message                                                                           |
 | -------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
 | `date` is missing                            | `400`  | `Please choose a date.`                                                           |
-| `date` is not a real `YYYY-MM-DD` date       | `400`  | `Date is not valid.`                                                              |
+| `date` is not a real `YYYY-MM-DD` date ≥1900 | `400`  | `Date is not valid.`                                                              |
 | `date` is after today                        | `400`  | `Date cannot be in the future.`                                                   |
 | `slot` is missing                            | `400`  | `Please choose a time slot.`                                                      |
 | `slot` is not one of the four keys           | `400`  | `Time slot is not valid.`                                                         |
@@ -306,6 +306,7 @@ The server tests use Node's built-in test runner (`node:test`). The API tests ad
 
 | File                               | Covers                                                    |
 | ---------------------------------- | --------------------------------------------------------- |
+| `server/test/auth.test.js`         | API tests for sign-up, login and the token check          |
 | `server/test/validation.test.js`   | Unit tests for the readings validation rules              |
 | `server/test/readings.test.js`     | API tests for the readings endpoints                      |
 | `server/test/reports-unit.test.js` | Unit tests for the report date ranges and summary numbers |
@@ -331,8 +332,8 @@ The client tests use Vitest and React Testing Library in a jsdom environment. `f
 | `client/src/__tests__/Signup.test.jsx`            | 2     | Sign-up password length check and the server message for an email already in use                                                                                                                                                                                      |
 | `client/src/__tests__/routeGuard.test.jsx`        | 4     | Protected dashboard: logged-out redirect, session restore, rejected token, logout, and the active link in the header                                                                                                                                                  |
 | `client/src/__tests__/Readings.test.jsx`          | 5     | Readings page: the day's list in slot order with the count, the empty state, picking another date, a failed load, logout on `401`, links from the header and dashboard                                                                                                |
-| `client/src/__tests__/ReadingForm.test.jsx`       | 9     | Add form: browser checks for the value, a future date and a taken slot, the server's message, saving and refreshing the list, saving to another date, the 4 per day limit, logout on `401`                                                                            |
-| `client/src/__tests__/ReadingEditDelete.test.jsx` | 12    | Inline edit (only changed fields sent, the same browser checks, the server's message, cancel, saving with nothing changed, one row at a time, moving to a new date) and delete (confirm, cancel, the server's message), logout on `401` for both                      |
+| `client/src/__tests__/ReadingForm.test.jsx`       | 12    | Add form: browser checks for the value, a future date and a taken slot, the server's message, saving and refreshing the list, saving to another date, the 4 per day limit, logout on `401`                                                                            |
+| `client/src/__tests__/ReadingEditDelete.test.jsx` | 14    | Inline edit (only changed fields sent, the same browser checks, the server's message, cancel, saving with nothing changed, one row at a time, moving to a new date) and delete (confirm, cancel, the server's message), logout on `401` for both                      |
 | `client/src/__tests__/slots.test.js`              | 4     | Slot keys, labels and order, sorting by slot, a or an in the duplicate slot message, the browser's local date                                                                                                                                                         |
 | `client/src/__tests__/Reports.test.jsx`           | 19    | Reports page: the three summaries and the daily readings, empty reports, changing the date, ignoring late answers for an old date, a failed load, logout on `401`, links from the header and dashboard, and the month-to-date chart's loading, empty and error states |
 | `client/src/__tests__/formatRange.test.js`        | 4     | Formatting a report's date range from `YYYY-MM-DD` strings                                                                                                                                                                                                            |
@@ -340,7 +341,7 @@ The client tests use Vitest and React Testing Library in a jsdom environment. `f
 | `client/src/__tests__/MonthChart.test.jsx`        | 8     | The month-to-date chart: accessible name, one line per slot with the legend in slot order, dots and lines, axis labels, the tooltip (including days without readings) and keyboard stepping through the days                                                          |
 | `client/src/__tests__/ui.test.jsx`                | 3     | The shared error, empty and loading components and how screen readers are told about them                                                                                                                                                                             |
 
-That is 94 client tests in 13 files.
+That is 99 client tests in 13 files.
 
 The test setup and the shared helpers (rendering the app, mocking `fetch`, reading the rows of the readings list) are in `client/src/test/`. To run only the client tests:
 

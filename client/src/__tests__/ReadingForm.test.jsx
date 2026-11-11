@@ -95,6 +95,57 @@ describe('Add a reading form', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('asks for a date when the date is cleared', async () => {
+    const fetchMock = mockApi({ ...ME, ...todayWith() });
+    const user = await openReadings();
+
+    // A browser date input reports an impossible or partly typed date as ''.
+    fireEvent.change(dateInput(), { target: { value: '' } });
+    await user.type(valueInput(), '120');
+    await user.click(addButton());
+
+    expect(dateInput()).toHaveAccessibleDescription('Please choose a date.');
+    expect(dateInput()).toHaveAttribute('aria-invalid', 'true');
+    expect(dateInput()).toHaveFocus();
+    expect(postCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it('shows each field message at once and focuses the first field', async () => {
+    mockApi({ ...ME, ...todayWith(reading('r1', TODAY, 'morning_fasting', 95)) });
+    const user = await openReadings(1);
+
+    await user.selectOptions(slotSelect(), 'Morning (fasting) – taken');
+    await user.click(addButton());
+
+    expect(slotSelect()).toHaveAccessibleDescription(
+      'You already have a Morning (fasting) reading for this date.'
+    );
+    expect(valueInput()).toHaveAccessibleDescription('Please enter a glucose value.');
+    expect(slotSelect()).toHaveFocus();
+  });
+
+  it("shows the server's validation message for a 400", async () => {
+    // The browser's today can be ahead of the server's time zone.
+    const fetchMock = mockApi({
+      ...ME,
+      ...todayWith(),
+      'POST /readings': { status: 400, body: { error: 'Date cannot be in the future.' } },
+    });
+    const user = await openReadings();
+
+    await user.type(valueInput(), '120');
+    await user.click(addButton());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Date cannot be in the future.');
+    expect(postCalls(fetchMock)).toHaveLength(1);
+    expect(valueInput()).toHaveValue('120');
+    expect(addButton()).toBeEnabled();
+
+    // Editing a field hides the server's message.
+    await user.type(valueInput(), '1');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('marks used slots as taken and stops a duplicate slot before sending', async () => {
     const fetchMock = mockApi({
       ...ME,
