@@ -3,6 +3,7 @@ import { createReading, deleteReading, isUnauthorized, updateReading } from '../
 import { useAuth } from '../auth/AuthContext.jsx';
 import ReadingForm from '../readings/ReadingForm.jsx';
 import ReadingItem from '../readings/ReadingItem.jsx';
+import { formatReadableDate } from '../readings/formatDate.js';
 import { MAX_READINGS_PER_DAY, MESSAGES, sortBySlot, todayLocal } from '../readings/slots.js';
 import { useDayReadings } from '../readings/useDayReadings.js';
 import Alert from '../ui/Alert.jsx';
@@ -118,10 +119,17 @@ export default function Readings() {
       );
   }
 
-  // Ties the date field to the message that says what is wrong with it.
-  const dateProblemProps = dateProblem
-    ? { 'aria-invalid': true, 'aria-describedby': 'readings-date-problem' }
-    : {};
+  // The date in words, as the input shows it in the browser's own format.
+  const readableDate = formatReadableDate(date);
+
+  // Ties the date field to the message that says what is wrong with it, or
+  // else to the date in words.
+  let dateProps = {};
+  if (dateProblem) {
+    dateProps = { 'aria-invalid': true, 'aria-describedby': 'readings-date-problem' };
+  } else if (readableDate) {
+    dateProps = { 'aria-describedby': 'readings-date-readable' };
+  }
 
   return (
     <section>
@@ -141,8 +149,13 @@ export default function Readings() {
                 max={today}
                 value={date}
                 onChange={(event) => changeDate(event.target.value)}
-                {...dateProblemProps}
+                {...dateProps}
               />
+              {readableDate && (
+                <span id="readings-date-readable" className="date-readable">
+                  {readableDate}
+                </span>
+              )}
             </div>
             {count}
           </div>

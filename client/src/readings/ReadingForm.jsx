@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react';
 import { isUnauthorized } from '../api/client.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import Alert from '../ui/Alert.jsx';
+import { formatReadableDate } from './formatDate.js';
 import {
   MAX_READINGS_PER_DAY,
   MAX_VALUE,
@@ -198,6 +199,14 @@ export default function ReadingForm({
     return { 'aria-invalid': true, 'aria-describedby': `${id}-${field}-error` };
   }
 
+  // The date in words, as the input shows it in the browser's own format.
+  // It describes the date field unless the field's error does.
+  const readableDate = formatReadableDate(date);
+  const dateProps =
+    errors.date || !readableDate
+      ? errorProps('date')
+      : { 'aria-describedby': `${id}-date-readable` };
+
   return (
     <form className="reading-form" aria-label={label} onSubmit={handleSubmit} noValidate>
       <div className="field">
@@ -211,8 +220,13 @@ export default function ReadingForm({
           required
           value={date}
           onChange={(event) => changeDate(event.target.value)}
-          {...errorProps('date')}
+          {...dateProps}
         />
+        {readableDate && (
+          <p id={`${id}-date-readable`} className="hint date-readable">
+            {readableDate}
+          </p>
+        )}
         <FieldError id={`${id}-date-error`} message={errors.date} />
       </div>
       <div className="field">
