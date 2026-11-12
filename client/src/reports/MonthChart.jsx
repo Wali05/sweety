@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useEffect, useState } from 'react';
 import { SLOTS } from '../readings/slots.js';
 import { RANGE_HIGH, RANGE_LOW, valueAxis } from './chartData.js';
 import { formatDate } from './formatRange.js';
@@ -20,7 +21,34 @@ const SERIES = SLOTS.map((slot, index) => ({ ...slot, color: `var(--slot-${index
 const slotOrder = (item) => SERIES.findIndex((series) => series.key === item.dataKey);
 
 const AXIS_TEXT = { fill: 'var(--muted)', fontSize: 12 };
+const AXIS_TEXT_NARROW = { ...AXIS_TEXT, fontSize: 11 };
 const AXIS_LINE = { stroke: 'var(--border)' };
+
+const NARROW = '(max-width: 40rem)';
+
+// Whether the screen is phone-sized, kept up to date as it changes.
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => Boolean(window.matchMedia?.(NARROW).matches));
+
+  useEffect(() => {
+    const query = window.matchMedia?.(NARROW);
+    if (!query) return undefined;
+    const update = () => setNarrow(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  return narrow;
+}
+
+// The days labelled on a narrow chart: the first, then every 2nd or 5th day
+// once there are too many to fit side by side.
+function narrowDayTicks(points) {
+  const days = points.map((point) => point.day);
+  const step = days.length <= 8 ? 1 : days.length <= 16 ? 2 : 5;
+  return days.filter((day, index) => index === 0 || day % step === 0);
+}
 
 // The day under the pointer or picked with the arrow keys: its full date and
 // the readings taken that day. A live region, like Recharts' own tooltip, so
@@ -57,13 +85,15 @@ function DayTooltip({ active, payload }) {
 // id of the element that says in words what the chart shows.
 export default function MonthChart({ points, describedBy }) {
   const { domain, ticks } = valueAxis(points);
+  const narrow = useNarrow();
+  const axisText = narrow ? AXIS_TEXT_NARROW : AXIS_TEXT;
 
   return (
     <div className="month-chart">
       <ResponsiveContainer width="100%" height={320}>
         <LineChart
           data={points}
-          margin={{ top: 8, right: 8, bottom: 16, left: 0 }}
+          margin={{ top: 8, right: 12, bottom: 16, left: 0 }}
           aria-label="Line chart of glucose readings for each day of the month, one line per time slot"
           aria-describedby={describedBy}
         >
@@ -78,20 +108,24 @@ export default function MonthChart({ points, describedBy }) {
           <XAxis
             dataKey="day"
             padding={{ left: 12, right: 12 }}
-            tick={AXIS_TEXT}
+            tick={axisText}
             tickLine={false}
             axisLine={AXIS_LINE}
             minTickGap={12}
-            label={{ value: 'Day of month', position: 'insideBottom', offset: -10, ...AXIS_TEXT }}
+            // A phone gets a short, fixed list of days; wider screens let
+            // Recharts fit as many as it can.
+            ticks={narrow ? narrowDayTicks(points) : undefined}
+            interval={narrow ? 0 : 'preserveStartEnd'}
+            label={{ value: 'Day of month', position: 'insideBottom', offset: -10, ...axisText }}
           />
           <YAxis
             domain={domain}
             ticks={ticks}
-            width={52}
-            tick={AXIS_TEXT}
+            width={48}
+            tick={axisText}
             tickLine={false}
             axisLine={false}
-            label={{ value: 'mg/dl', angle: -90, position: 'insideLeft', offset: 12, ...AXIS_TEXT }}
+            label={{ value: 'mg/dl', angle: -90, position: 'insideLeft', offset: 12, ...axisText }}
           />
           {/* filterNull is off so a day without readings still gets its tooltip. */}
           <Tooltip content={<DayTooltip />} cursor={AXIS_LINE} filterNull={false} />
@@ -99,7 +133,9 @@ export default function MonthChart({ points, describedBy }) {
             verticalAlign="top"
             itemSorter={slotOrder}
             formatter={(label) => <span className="chart-legend-label">{label}</span>}
-            wrapperStyle={{ position: 'relative', paddingBottom: 8 }}
+            iconSize={12}
+            // Laid out in index.css so it wraps as a tidy centred block.
+            wrapperStyle={{ position: 'relative', paddingBottom: 12 }}
           />
           {SERIES.map((series) => (
             <Line

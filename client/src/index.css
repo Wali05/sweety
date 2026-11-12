@@ -66,6 +66,8 @@
 @media (max-width: 40rem) {
   :root {
     --text-2xl: 1.5rem;
+    /* Small buttons stay easy to tap on a phone. */
+    --control-height-small: 2.5rem;
   }
 }
 
@@ -151,8 +153,11 @@ a,
   padding: 0 var(--space-4);
 }
 
+/* A column, so a page can centre itself in the space above the footer. */
 main.container {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   padding-top: var(--space-6);
   padding-bottom: var(--space-7);
 }
@@ -224,6 +229,10 @@ main:focus {
 }
 
 .site-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
   padding: var(--space-2) var(--space-3);
   font-weight: 500;
   color: var(--muted);
@@ -264,21 +273,6 @@ main:focus {
   white-space: nowrap;
 }
 
-/* Long account names wrap rather than crowding out the page links. */
-@media (max-width: 30rem) {
-  .has-account .site-header-inner {
-    align-items: flex-start;
-  }
-
-  .has-account .brand {
-    flex-basis: 100%;
-  }
-
-  .has-account .site-account {
-    margin-left: 0;
-  }
-}
-
 /* On a phone the page links get a row of their own under the app name. */
 @media (max-width: 40rem) {
   .has-account .site-account {
@@ -296,7 +290,20 @@ main:focus {
 
   .has-account .site-nav a {
     flex: 1;
-    text-align: center;
+    padding-right: var(--space-2);
+    padding-left: var(--space-2);
+  }
+}
+
+/* On a small phone only the app name and Log out share the top row. The
+   user's name stays in the page for screen readers. */
+@media (max-width: 30rem) {
+  .nav-user {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 }
 
@@ -475,11 +482,14 @@ main:focus {
   color: var(--danger);
 }
 
-/* Label and control on one line, e.g. the date above a list. */
+/* Label and control on one line, e.g. the date above a list. The date in
+   words goes under them when there is no room beside. */
 .field-inline {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
   margin-bottom: 0;
 }
 
@@ -488,8 +498,16 @@ main:focus {
 }
 
 .field-inline input {
-  flex: 1;
+  flex: 1 1 10rem;
   min-width: 0;
+}
+
+/* A date input's value in words, e.g. 'Thu, 12 Nov 2026'. */
+.date-readable {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .toolbar {
@@ -610,6 +628,7 @@ main:focus {
 /* Home and page not found */
 
 .hero {
+  width: 100%;
   max-width: 40rem;
   margin: 0 auto;
   padding: var(--space-6) 0;
@@ -675,11 +694,12 @@ main:focus {
   overflow-wrap: anywhere;
 }
 
-/* Log in and sign up */
+/* Log in and sign up: centred in the space between header and footer. */
 
 .auth-card {
+  width: 100%;
   max-width: 26rem;
-  margin: var(--space-4) auto 0;
+  margin: auto;
 }
 
 .auth-card h1 {
@@ -829,9 +849,35 @@ main:focus {
   gap: var(--space-4);
 }
 
-@media (min-width: 60rem) {
+/* From a tablet up the day runs across the top, its numbers and readings in
+   matching columns, with the two months side by side under it. */
+@media (min-width: 40rem) {
   .report-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-daily {
+    grid-column: 1 / -1;
+  }
+
+  .report-daily .report-stats,
+  .report-daily .reading-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .report-daily .reading-list li {
+    display: block;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .report-daily .reading-slot {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 400;
+    color: var(--muted);
   }
 }
 
@@ -847,11 +893,33 @@ main:focus {
   color: var(--muted);
 }
 
+/* Two by two on a phone, one row of four once the card has the room. In a
+   tight row the unit drops under its number so every column reads alike. */
+.report {
+  container-type: inline-size;
+}
+
 .report-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4) var(--space-3);
   margin: 0;
+}
+
+@container (min-width: 22rem) {
+  .report-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .report-stat .reading-unit {
+    display: block;
+  }
+}
+
+@container (min-width: 28rem) {
+  .report-stat .reading-unit {
+    display: inline;
+  }
 }
 
 .report-stat dt {
@@ -883,8 +951,41 @@ main:focus {
   font-size: var(--text-sm);
 }
 
+/* The legend sits in the flow above the plot, so the chart grows by the
+   legend's height instead of spilling over the caption under it. */
+.month-chart .recharts-responsive-container,
+.month-chart .recharts-wrapper {
+  height: auto !important;
+  max-height: none !important;
+}
+
 .month-chart .hint {
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* The legend wraps as a centred block, two per row on a small phone. The
+   !important rules replace styles Recharts sets on the elements. */
+.month-chart .recharts-default-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1) var(--space-4);
+}
+
+.month-chart .recharts-legend-item {
+  display: inline-flex !important;
+  align-items: center;
+  margin-right: 0 !important;
+  white-space: nowrap;
+}
+
+@media (max-width: 30rem) {
+  .month-chart .recharts-default-legend {
+    display: grid;
+    grid-template-columns: repeat(2, max-content);
+    gap: var(--space-1) var(--space-3);
+    font-size: 0.8125rem;
+  }
 }
 
 /* Legend and tooltip text stays in the text colour; the mark beside it

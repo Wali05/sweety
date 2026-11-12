@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { formatReadableDate } from '../readings/formatDate.js';
 import { MESSAGES, sortBySlot, todayLocal } from '../readings/slots.js';
 import MonthSection from '../reports/MonthSection.jsx';
 import { formatRange } from '../reports/formatRange.js';
@@ -25,11 +26,11 @@ function Stat({ label, value, unit = true }) {
 
 // One report: its date range, then the summary numbers or the empty state.
 // A report with a readings list (the daily one) also shows it.
-function ReportSection({ title, report }) {
+function ReportSection({ title, report, className = '' }) {
   const id = useId();
 
   return (
-    <section className="card report" aria-labelledby={`${id}-title`}>
+    <section className={`card report ${className}`.trimEnd()} aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`}>{title}</h2>
       <p className="report-range">{formatRange(report.from, report.to)}</p>
       {report.empty ? (
@@ -84,9 +85,9 @@ export default function Reports() {
   } else {
     content = (
       <>
-        {/* Side by side on wide screens, stacked on narrow ones. */}
+        {/* The day across the top with the two months under it; stacked on a phone. */}
         <div className="report-grid">
-          <ReportSection title="Daily" report={reports.daily} />
+          <ReportSection title="Daily" report={reports.daily} className="report-daily" />
           <ReportSection title="Month-to-date" report={reports.monthToDate} />
           <ReportSection title="Previous month" report={reports.previousMonth} />
         </div>
@@ -95,10 +96,17 @@ export default function Reports() {
     );
   }
 
-  // Ties the date field to the message that says what is wrong with it.
-  const dateProblemProps = dateProblem
-    ? { 'aria-invalid': true, 'aria-describedby': 'reports-date-problem' }
-    : {};
+  // The date in words, as the input shows it in the browser's own format.
+  const readableDate = formatReadableDate(date);
+
+  // Ties the date field to the message that says what is wrong with it, or
+  // else to the date in words.
+  let dateProps = {};
+  if (dateProblem) {
+    dateProps = { 'aria-invalid': true, 'aria-describedby': 'reports-date-problem' };
+  } else if (readableDate) {
+    dateProps = { 'aria-describedby': 'reports-date-readable' };
+  }
 
   return (
     <section>
@@ -118,8 +126,13 @@ export default function Reports() {
             max={today}
             value={date}
             onChange={(event) => setDate(event.target.value)}
-            {...dateProblemProps}
+            {...dateProps}
           />
+          {readableDate && (
+            <span id="reports-date-readable" className="date-readable">
+              {readableDate}
+            </span>
+          )}
         </div>
       </div>
       {content}
