@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { useEffect, useState } from 'react';
 import { SLOTS } from '../readings/slots.js';
-import { RANGE_HIGH, RANGE_LOW, valueAxis } from './chartData.js';
+import { RANGE_HIGH, RANGE_LOW, narrowDayTicks, valueAxis } from './chartData.js';
 import { formatDate } from './formatRange.js';
 
 // One line per slot, in slot order. The colours are set in index.css.
@@ -40,14 +40,6 @@ function useNarrow() {
   }, []);
 
   return narrow;
-}
-
-// The days labelled on a narrow chart: the first, then every 2nd or 5th day
-// once there are too many to fit side by side.
-function narrowDayTicks(points) {
-  const days = points.map((point) => point.day);
-  const step = days.length <= 8 ? 1 : days.length <= 16 ? 2 : 5;
-  return days.filter((day, index) => index === 0 || day % step === 0);
 }
 
 // The day under the pointer or picked with the arrow keys: its full date and

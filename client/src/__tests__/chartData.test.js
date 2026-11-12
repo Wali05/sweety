@@ -6,10 +6,40 @@ import {
   countReadings,
   emptyChartMessage,
   monthToDateRange,
+  narrowDayTicks,
   valueAxis,
 } from '../reports/chartData.js';
 
 const reading = (date, slot, value) => ({ id: `${date}-${slot}`, date, slot, value });
+
+describe('narrowDayTicks', () => {
+  const ticksFor = (count) =>
+    narrowDayTicks(Array.from({ length: count }, (unused, index) => ({ day: index + 1 })));
+
+  it('labels every day while there are few of them', () => {
+    expect(ticksFor(1)).toEqual([1]);
+    expect(ticksFor(8)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it('starts on the 1st and keeps the same gap between all labels', () => {
+    expect(ticksFor(12)).toEqual([1, 3, 5, 7, 9, 11]);
+    expect(ticksFor(20)).toEqual([1, 4, 7, 10, 13, 16, 19]);
+    expect(ticksFor(31)).toEqual([1, 6, 11, 16, 21, 26, 31]);
+  });
+
+  it('never puts two labels closer together than the rest', () => {
+    for (let count = 1; count <= 31; count += 1) {
+      const ticks = ticksFor(count);
+      const gaps = new Set(ticks.slice(1).map((day, index) => day - ticks[index]));
+      expect(ticks[0]).toBe(1);
+      expect(gaps.size).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('has no labels without days', () => {
+    expect(ticksFor(0)).toEqual([]);
+  });
+});
 
 // As the API sends them: newest date first.
 const READINGS = [

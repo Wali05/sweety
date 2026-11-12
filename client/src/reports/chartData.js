@@ -8,6 +8,18 @@ import { formatDate, formatRange } from './formatRange.js';
 export const RANGE_LOW = 70;
 export const RANGE_HIGH = 180;
 
+// The days labelled on a phone-sized chart: the first day, then every 2nd,
+// 3rd or 5th one after it once there are too many to fit side by side
+// (1, 3, 5… / 1, 4, 7… / 1, 6, 11…), so the labels are always evenly spaced.
+export function narrowDayTicks(points) {
+  const days = points.map((point) => point.day);
+  let step = 5;
+  if (days.length <= 8) step = 1;
+  else if (days.length <= 16) step = 2;
+  else if (days.length <= 24) step = 3;
+  return days.filter((day, index) => index % step === 0);
+}
+
 // The 1st of date's month up to date, the same range as the month-to-date
 // report.
 export function monthToDateRange(date) {
