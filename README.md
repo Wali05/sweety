@@ -2,7 +2,32 @@
 
 Sweety is a blood glucose tracker. A patient records up to 4 blood glucose readings per day and views daily, month-to-date, and previous-month reports.
 
-The project is in active development: this repository currently contains the monorepo scaffold, the API server (sign-up and login, readings, and reports), the database schema, and a React client with sign-up, login, a readings page for viewing, adding, editing and deleting a day's readings, and a reports page with the daily, month-to-date and previous-month summaries and a month-to-date chart.
+The repository contains the API server (sign-up and login, readings, and reports), the database schema with migrations and a seed script, and a React client with sign-up, login, a readings page for viewing, adding, editing and deleting a day's readings, and a reports page with the daily, month-to-date and previous-month summaries and a month-to-date chart. It can also be started with Docker Compose.
+
+## Screenshots
+
+**Log in**
+
+![Log in page](docs/screenshots/login.png)
+
+**Readings for a day, with the add form**
+
+![Readings page for one day with the add form](docs/screenshots/readings.png)
+
+**Validation error for a value of 700**
+
+![Validation error shown for a value of 700](docs/screenshots/readings-validation.png)
+
+**Reports with the month chart**
+
+![Reports page with the three summaries and the month chart](docs/screenshots/reports.png)
+
+**Phone width**
+
+<p>
+  <img src="docs/screenshots/mobile-readings.png" alt="Readings page at phone width" width="280">
+  <img src="docs/screenshots/mobile-reports.png" alt="Reports page at phone width" width="280">
+</p>
 
 ## Stack
 
@@ -87,7 +112,7 @@ curl http://localhost:3000/health
 # {"ok":true,"db":"up"}
 ```
 
-So far the API has this health check, the database schema, and the auth, readings and reports endpoints below.
+Besides this health check, the API has the auth, readings and reports endpoints below.
 
 ### Auth endpoints
 
@@ -313,6 +338,8 @@ The server tests use Node's built-in test runner (`node:test`). The API tests ad
 | `server/test/reports.test.js`      | API tests for the reports endpoints                       |
 | `server/test/seed.test.js`         | Unit tests for the demo data generator                    |
 
+That is 63 server tests in 6 files.
+
 The API tests run against the real database from `DATABASE_URL`, so it must be set up and migrated first (see [Database setup](#database-setup)). Each test signs up its own users with unique `@example.test` emails and removes them, along with their readings, when the run finishes; no other data is touched.
 
 To run only the server tests:
@@ -337,14 +364,50 @@ The client tests use Vitest and React Testing Library in a jsdom environment. `f
 | `client/src/__tests__/slots.test.js`              | 4     | Slot keys, labels and order, sorting by slot, a or an in the duplicate slot message, the browser's local date                                                                                                                                                         |
 | `client/src/__tests__/Reports.test.jsx`           | 19    | Reports page: the three summaries and the daily readings, empty reports, changing the date, ignoring late answers for an old date, a failed load, logout on `401`, links from the header and dashboard, and the month-to-date chart's loading, empty and error states |
 | `client/src/__tests__/formatRange.test.js`        | 4     | Formatting a report's date range from `YYYY-MM-DD` strings                                                                                                                                                                                                            |
-| `client/src/__tests__/chartData.test.js`          | 13    | Turning a month's readings into one chart point per day with one value per slot, with empty values for missed days                                                                                                                                                    |
+| `client/src/__tests__/chartData.test.js`          | 17    | Turning a month's readings into one chart point per day with one value per slot, with empty values for missed days, and the evenly spaced day labels of the chart on a phone                                                                                          |
+| `client/src/__tests__/formatDate.test.js`         | 4     | Writing a `YYYY-MM-DD` date in words (weekday, day, month, year) for the text next to the date pickers                                                                                                                                                                |
 | `client/src/__tests__/MonthChart.test.jsx`        | 8     | The month-to-date chart: accessible name, one line per slot with the legend in slot order, dots and lines, axis labels, the tooltip (including days without readings) and keyboard stepping through the days                                                          |
 | `client/src/__tests__/ui.test.jsx`                | 3     | The shared error, empty and loading components and how screen readers are told about them                                                                                                                                                                             |
 
-That is 99 client tests in 13 files.
+That is 107 client tests in 14 files.
 
 The test setup and the shared helpers (rendering the app, mocking `fetch`, reading the rows of the readings list) are in `client/src/test/`. To run only the client tests:
 
 ```sh
 npm test --workspace client
 ```
+
+## Design decisions
+
+- **Data model:** two tables, `users` and `readings`, created by plain numbered SQL migrations and queried with `pg` directly (no ORM). A reading is a user, a `date` column (no time of day), a slot key and an integer value. Ids are UUIDs, and deleting a user deletes their readings.
+- **One reading per slot per day:** enforced by a unique constraint on `(user_id, reading_date, slot)`, with check constraints for the four slot keys and the 40 to 600 range. The API checks the same rules first so it can answer with a clear message, and the constraints catch what slips past, such as two requests saving the same slot at the same moment. With four slots, the unique constraint also guarantees the limit of 4 readings per day.
+- **Validation:** all rules live in one module on the server (`server/src/validation/readings.js`) and are checked in a fixed order, so a request always gets the same first error. Input errors are `400`; the duplicate slot and the full day are `409`. The value must be a whole number, sent as a number or a string of digits; `120.5` is refused rather than rounded. The client repeats the checks with the same messages to save a request, but the server is the source of truth.
+- **Auth:** passwords are hashed with bcrypt (cost 10) and limited to 72 bytes, the most bcrypt reads. Login returns a JWT (HS256, 7 days by default) that holds only the user id; the client sends it as a Bearer token and keeps it in `localStorage`. Every protected request loads the user again, so a token for a deleted account stops working. Login gives the same message, in about the same time, for an unknown email and a wrong password.
+- **Own data only:** every readings query filters by the user id from the token. Someone else's reading, an unknown id and a malformed id all answer `404`.
+- **Reports:** each report turns the selected date into a date range (`server/src/reports/ranges.js`), reads that range with one indexed SQL query, and works out the count, highest, lowest and average in JavaScript (`server/src/reports/stats.js`). At no more than 4 readings a day that is at most 124 rows, and it keeps the ranges and the numbers as small pure functions with unit tests that need no database.
+- **Dates and time zones:** a reading's date is a calendar day, so it is a `YYYY-MM-DD` string everywhere: PostgreSQL formats it with `to_char`, and it is never turned into a JavaScript `Date` that could shift it by a day. "Today", for the future-date rule, is decided on the server in `APP_TIMEZONE`.
+- **Client structure:** pages in `client/src/pages/`, with the code for each feature beside them (`auth/`, `readings/`, `reports/`), one small `fetch` wrapper in `api/client.js`, and shared error, empty and loading components in `ui/`. Data loading sits in hooks (`useDayReadings`, `useReports`, `useMonthReadings`), and state is React state and one auth context; there is no state library. The chart library is loaded only when the reports page opens.
+
+## Notes
+
+### Assumptions
+
+- "Monthly" in the brief is the whole month before the selected date's month; the app calls it **Previous month** so it is not confused with month-to-date.
+- Only one reading per slot per day and at most 4 per day are the same limit when there are four slots. Both messages exist: the full-day message comes first when a day already has 4 readings, and the add form shows it and stops taking values for that date.
+- "Date cannot be in the future" is judged in one fixed time zone (`APP_TIMEZONE`, Asia/Kolkata by default), not the browser's. A browser in another time zone can disagree with the server for a few hours a day; the server's answer wins and its message is shown.
+- Reports for a future date are refused in the same way as readings for one.
+- Editing a reading may change its date and slot as well as its value, under the same rules as adding one.
+- Values are whole numbers of mg/dl only; there is no mmol/L option.
+- The brief sets no password rule, so sign-up asks for at least 8 characters.
+- A reading has a date and a slot but no clock time, as the brief describes it.
+- From the bonus list, the month chart, Docker Compose and the frontend tests are done. Pagination, Redis caching, the BullMQ job and the doctor role are not.
+
+### With more time
+
+- Pagination on `GET /readings` (`?page=1&limit=20`). It returns all of the user's readings for the given dates now, which is fine for the one-day and one-month ranges the client asks for but not for years of data.
+- Keep the token in an `httpOnly` cookie instead of `localStorage`, and add rate limiting to login and sign-up.
+- A time zone per user instead of one for the whole app, so "today" is right for everyone.
+- A separate test database and a CI run. The API tests clean up after themselves, but they use the database from `DATABASE_URL`.
+- Share the slots, limits and messages between server and client. They are written out in both (`server/src/validation/readings.js` and `client/src/readings/slots.js`) and have to be kept in step by hand.
+- A few end-to-end tests in a real browser; the client tests mock `fetch`, so nothing tests client and server together.
+- Password reset and email verification.
