@@ -78,7 +78,9 @@ const MONTH_READINGS = [
 ];
 const CHART_TITLE = 'Month-to-date chart';
 const MONTH_SUMMARY = '5 readings from 1 Oct – 15 Oct 2026';
-const readingsRoute = (from, to) => `GET /readings?from=${from}&to=${to}`;
+// The chart asks for the whole month in one page.
+const readingsPath = (from, to) => `/readings?from=${from}&to=${to}&limit=200`;
+const readingsRoute = (from, to) => `GET ${readingsPath(from, to)}`;
 const TODAY_READINGS = readingsRoute('2026-10-01', TODAY);
 
 const TODAY_ROUTES = {
@@ -296,8 +298,8 @@ describe('Reports page', () => {
       `/reports/previous-month?date=${OTHER}`,
     ]);
     expect(readingsPaths(fetchMock)).toEqual([
-      `/readings?from=2026-10-01&to=${TODAY}`,
-      `/readings?from=2026-09-01&to=${OTHER}`,
+      readingsPath('2026-10-01', TODAY),
+      readingsPath('2026-09-01', OTHER),
     ]);
   });
 
@@ -366,7 +368,7 @@ describe('Reports page', () => {
 
       await screen.findByRole('heading', { name: CHART_TITLE });
 
-      expect(readingsPaths(fetchMock)).toEqual([`/readings?from=2026-10-01&to=${TODAY}`]);
+      expect(readingsPaths(fetchMock)).toEqual([readingsPath('2026-10-01', TODAY)]);
       const [, init] = fetchMock.mock.calls.find(([path]) => path.startsWith('/readings'));
       expect(init.headers.Authorization).toBe('Bearer stored-token');
 
@@ -410,7 +412,7 @@ describe('Reports page', () => {
       expect(section(CHART_TITLE)).toContainElement(screen.getByText(EMPTY_CHART));
       expect(screen.queryByTestId('month-chart')).not.toBeInTheDocument();
       expect(screen.queryByText(/\d+ readings? (from|on) /)).not.toBeInTheDocument();
-      expect(readingsPaths(fetchMock)).toEqual([`/readings?from=2026-09-01&to=${OTHER}`]);
+      expect(readingsPaths(fetchMock)).toEqual([readingsPath('2026-09-01', OTHER)]);
     });
 
     it('asks for a single day on the 1st of a month', async () => {
@@ -431,7 +433,7 @@ describe('Reports page', () => {
       expect(await chartPoints()).toEqual([
         { day: 1, date: first, ...NO_READINGS, after_lunch: 151 },
       ]);
-      expect(readingsPaths(fetchMock)).toEqual([`/readings?from=${first}&to=${first}`]);
+      expect(readingsPaths(fetchMock)).toEqual([readingsPath(first, first)]);
     });
 
     it('shows that the chart is loading while the summaries are already there', async () => {

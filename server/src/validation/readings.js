@@ -31,6 +31,8 @@ export const MESSAGES = {
     `You already have ${/^[aeiou]/i.test(label) ? 'an' : 'a'} ${label} reading for this date.`,
   maxPerDay: `You can add only ${MAX_READINGS_PER_DAY} readings per day.`,
   notFound: 'Reading not found.',
+  pageInvalid: 'Page is not valid.',
+  limitInvalid: 'Limit is not valid.',
 };
 
 // Label for a slot key, or undefined if the key is unknown.

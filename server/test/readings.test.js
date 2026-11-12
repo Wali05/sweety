@@ -312,3 +312,137 @@ test('edit and delete a reading', async () => {
   assert.equal(gone.status, 404);
   assert.equal(gone.body.error, NOT_FOUND);
 });
+
+// Five readings over three days, for the paging tests.
+async function createFiveReadings(account) {
+  for (const [date, slot] of [
+    ['2026-09-01', 'after_lunch'],
+    ['2026-09-02', 'after_dinner'],
+    ['2026-09-02', 'morning_fasting'],
+    ['2026-09-03', 'after_breakfast'],
+    ['2026-09-03', 'after_lunch'],
+  ]) {
+    const res = await post(account, { date, slot, value: 110 });
+    assert.equal(res.status, 201);
+  }
+}
+
+function list(account, query = '') {
+  return request(app).get(`/readings${query}`).set(auth(account));
+}
+
+test('list defaults to page 1 with a limit of 20', async () => {
+  const account = await signUpUser();
+
+  const empty = await list(account);
+  assert.equal(empty.status, 200);
+  assert.deepEqual(empty.body, { readings: [], page: 1, limit: 20, total: 0, totalPages: 0 });
+
+  await post(account, { date: '2026-09-01', slot: 'after_lunch', value: 120 });
+  await post(account, { date: '2026-09-02', slot: 'morning_fasting', value: 95 });
+
+  const res = await list(account);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.page, 1);
+  assert.equal(res.body.limit, 20);
+  assert.equal(res.body.total, 2);
+  assert.equal(res.body.totalPages, 1);
+  assert.deepEqual(res.body.readings.map((r) => [r.date, r.value]), [
+    ['2026-09-02', 95],
+    ['2026-09-01', 120],
+  ]);
+});
+
+test('pages follow the order of the whole list', async () => {
+  const account = await signUpUser();
+  await createFiveReadings(account);
+
+  const all = await list(account);
+  assert.deepEqual(all.body.readings.map((r) => [r.date, r.slot]), [
+    ['2026-09-03', 'after_breakfast'],
+    ['2026-09-03', 'after_lunch'],
+    ['2026-09-02', 'morning_fasting'],
+    ['2026-09-02', 'after_dinner'],
+    ['2026-09-01', 'after_lunch'],
+  ]);
+
+  const paged = [];
+  for (const [page, size] of [[1, 2], [2, 2], [3, 1]]) {
+    const res = await list(account, `?page=${page}&limit=2`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.readings.length, size, `page ${page}`);
+    assert.equal(res.body.page, page);
+    assert.equal(res.body.limit, 2);
+    assert.equal(res.body.total, 5);
+    assert.equal(res.body.totalPages, 3);
+    paged.push(...res.body.readings);
+  }
+  assert.deepEqual(paged, all.body.readings);
+});
+
+test('a page past the end is empty with the real totals', async () => {
+  const account = await signUpUser();
+  await createFiveReadings(account);
+
+  const res = await list(account, '?page=4&limit=2');
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { readings: [], page: 4, limit: 2, total: 5, totalPages: 3 });
+});
+
+test('total counts only the readings matching the date filter', async () => {
+  const account = await signUpUser();
+  await createFiveReadings(account);
+
+  const day = await list(account, '?date=2026-09-02');
+  assert.equal(day.body.total, 2);
+  assert.equal(day.body.totalPages, 1);
+  assert.deepEqual(day.body.readings.map((r) => r.slot), ['morning_fasting', 'after_dinner']);
+
+  const range = await list(account, '?from=2026-09-02&to=2026-09-03&limit=3');
+  assert.equal(range.body.total, 4);
+  assert.equal(range.body.totalPages, 2);
+  assert.equal(range.body.readings.length, 3);
+  assert.ok(range.body.readings.every((r) => r.date >= '2026-09-02'));
+
+  const rest = await list(account, '?from=2026-09-02&to=2026-09-03&limit=3&page=2');
+  assert.equal(rest.body.total, 4);
+  assert.deepEqual(rest.body.readings.map((r) => [r.date, r.slot]), [
+    ['2026-09-02', 'after_dinner'],
+  ]);
+
+  const from = await list(account, '?from=2026-09-03');
+  assert.equal(from.body.total, 2);
+  const to = await list(account, '?to=2026-09-01');
+  assert.equal(to.body.total, 1);
+});
+
+test('invalid page and limit give 400, never 500', async () => {
+  const account = await signUpUser();
+
+  const badPages = ['page=0', 'page=-1', 'page=1.5', 'page=', 'page=abc', 'page=1e2'];
+  // Far too large, and a repeated param (which Express parses as an array).
+  badPages.push('page=99999999999999999999', 'page=1&page=2');
+  for (const query of badPages) {
+    const res = await list(account, `?${query}`);
+    assert.equal(res.status, 400, query);
+    assert.equal(res.body.error, 'Page is not valid.');
+  }
+
+  for (const value of ['0', '-5', '2.5', '', 'abc', '201']) {
+    const res = await list(account, `?limit=${value}`);
+    assert.equal(res.status, 400, `limit ${value}`);
+    assert.equal(res.body.error, 'Limit is not valid.');
+  }
+
+  const largest = await list(account, '?limit=200');
+  assert.equal(largest.status, 200);
+  assert.equal(largest.body.limit, 200);
+
+  // Page is checked before limit, and the date filter before both.
+  const both = await list(account, '?page=0&limit=0');
+  assert.equal(both.status, 400);
+  assert.equal(both.body.error, 'Page is not valid.');
+  const withDate = await list(account, '?date=2026-02-30&page=0&limit=0');
+  assert.equal(withDate.status, 400);
+  assert.equal(withDate.body.error, 'Date is not valid.');
+});

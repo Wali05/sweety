@@ -3,6 +3,10 @@ import { isUnauthorized, listReadings } from '../api/client.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { monthToDateRange } from './chartData.js';
 
+// The server's largest page: a month has at most 31 x 4 = 124 readings, so one
+// request always gets the whole month.
+const MONTH_LIMIT = 200;
+
 // Loads the readings from the 1st of date's month up to date ('YYYY-MM-DD'),
 // or nothing when date is null. Returns { readings, error }: readings is null
 // until they have loaded for this date (or when loading failed, with the
@@ -18,7 +22,7 @@ export function useMonthReadings(date) {
     // Set when the date changes or the page goes away, so a late response
     // for an old date is ignored.
     let cancelled = false;
-    listReadings(token, monthToDateRange(date))
+    listReadings(token, { ...monthToDateRange(date), limit: MONTH_LIMIT })
       .then(({ readings }) => {
         if (!cancelled) setLoaded({ date, readings, error: '' });
       })

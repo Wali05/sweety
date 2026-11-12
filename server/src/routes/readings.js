@@ -3,12 +3,13 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import {
+  countReadings,
   countReadingsOnDate,
   createReading,
   deleteReading,
   findReading,
   findReadingBySlot,
-  listReadings,
+  listReadingsPage,
   updateReading,
 } from '../models/readings.js';
 import {
@@ -25,6 +26,13 @@ router.use(requireAuth);
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLOT_CONSTRAINT = 'readings_user_date_slot_key';
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
+// Enough for a month of readings at 4 a day in one request.
+const MAX_LIMIT = 200;
+// Keeps the offset well inside what the database accepts.
+const MAX_PAGE = 1000000;
 
 // Returns { status, error } when a reading cannot be saved on this date and
 // slot, or null when it can. excludeId leaves out the reading being edited.
@@ -74,6 +82,25 @@ function parseDateFilter(query) {
   return { from, to };
 }
 
+// A whole number from 1 to max written in plain digits, or null.
+function parsePositiveInt(value, max) {
+  if (typeof value !== 'string' || !/^\d{1,9}$/.test(value)) return null;
+  const number = Number(value);
+  return number >= 1 && number <= max ? number : null;
+}
+
+// Reads ?page= and ?limit= into { page, limit }, or returns { error }.
+function parsePaging(query) {
+  const page = query.page === undefined ? DEFAULT_PAGE : parsePositiveInt(query.page, MAX_PAGE);
+  if (page === null) return { error: MESSAGES.pageInvalid };
+
+  const limit =
+    query.limit === undefined ? DEFAULT_LIMIT : parsePositiveInt(query.limit, MAX_LIMIT);
+  if (limit === null) return { error: MESSAGES.limitInvalid };
+
+  return { page, limit };
+}
+
 // Anything that is not a UUID cannot be a reading id; answering 404 here keeps
 // malformed ids away from the database.
 router.param('id', (req, res, next, id) => {
@@ -114,8 +141,19 @@ router.get('/', async (req, res) => {
     return res.status(400).json({ error: filter.error });
   }
 
-  const readings = await listReadings(req.user.id, filter);
-  res.json({ readings });
+  const paging = parsePaging(req.query);
+  if (paging.error) {
+    return res.status(400).json({ error: paging.error });
+  }
+
+  const { page, limit } = paging;
+  const [total, readings] = await Promise.all([
+    countReadings(req.user.id, filter),
+    listReadingsPage(req.user.id, { ...filter, limit, offset: (page - 1) * limit }),
+  ]);
+
+  // A page past the last one is an empty list, not an error.
+  res.json({ readings, page, limit, total, totalPages: Math.ceil(total / limit) });
 });
 
 router.get('/:id', async (req, res) => {

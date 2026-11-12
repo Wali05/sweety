@@ -98,6 +98,20 @@ describe('readings api', () => {
     ]);
   });
 
+  it('adds page and limit to the query when they are given', async () => {
+    const page = { readings: [reading], page: 2, limit: 50, total: 51, totalPages: 2 };
+    const fetchMock = vi.fn(async () => jsonResponse(200, page));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await listReadings('tok', { page: 2, limit: 50 })).toEqual(page);
+    await listReadings('tok', { from: '2026-10-01', to: '2026-10-15', limit: 200 });
+
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      '/readings?page=2&limit=50',
+      '/readings?from=2026-10-01&to=2026-10-15&limit=200',
+    ]);
+  });
+
   it('creates, updates and deletes readings', async () => {
     const fetchMock = vi
       .fn()

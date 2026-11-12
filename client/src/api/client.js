@@ -74,13 +74,15 @@ export function fetchMe(token) {
 // Readings. Each reading is { id, date, slot, slotLabel, value, createdAt,
 // updatedAt }, with date as 'YYYY-MM-DD' and value in mg/dl.
 
-// Resolves with { readings }: the readings on date (YYYY-MM-DD), or the ones
-// from `from` up to `to` (both optional and inclusive), or all of the user's
-// readings when no filter is given. Newest date first, in slot order within a
-// day.
-export function listReadings(token, { date, from, to } = {}) {
+// Resolves with { readings, page, limit, total, totalPages }: one page of the
+// readings on date (YYYY-MM-DD), or of the ones from `from` up to `to` (both
+// optional and inclusive), or of all the user's readings when no filter is
+// given. Newest date first, in slot order within a day. page starts at 1 and
+// limit is 1 to 200; the server uses page 1 and limit 20 when they are left
+// out. total counts every reading matching the filter, not just this page.
+export function listReadings(token, { date, from, to, page, limit } = {}) {
   const params = new URLSearchParams();
-  for (const [name, value] of Object.entries({ date, from, to })) {
+  for (const [name, value] of Object.entries({ date, from, to, page, limit })) {
     if (value !== undefined) params.set(name, value);
   }
   const query = params.size > 0 ? `?${params}` : '';

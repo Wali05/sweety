@@ -25,19 +25,49 @@ function toReading(row) {
   };
 }
 
-// Lists a user's readings, newest date first and in slot order within a day.
-// from and to are optional inclusive 'YYYY-MM-DD' bounds.
+// A user's readings between the optional inclusive bounds $2 and $3.
+const IN_RANGE = `user_id = $1
+        AND ($2::date IS NULL OR reading_date >= $2::date)
+        AND ($3::date IS NULL OR reading_date <= $3::date)`;
+
+// Newest date first and in slot order within a day; $4 is SLOT_KEYS.
+const LIST_ORDER = 'reading_date DESC, array_position($4::text[], slot)';
+
+// Lists all of a user's readings, newest date first and in slot order within
+// a day. from and to are optional inclusive 'YYYY-MM-DD' bounds.
 export async function listReadings(userId, { from, to } = {}) {
   const result = await pool.query(
     `SELECT ${COLUMNS}
        FROM readings
-      WHERE user_id = $1
-        AND ($2::date IS NULL OR reading_date >= $2::date)
-        AND ($3::date IS NULL OR reading_date <= $3::date)
-      ORDER BY reading_date DESC, array_position($4::text[], slot)`,
+      WHERE ${IN_RANGE}
+      ORDER BY ${LIST_ORDER}`,
     [userId, from ?? null, to ?? null, SLOT_KEYS]
   );
   return result.rows.map(toReading);
+}
+
+// One page of listReadings: at most limit readings, skipping the first offset.
+export async function listReadingsPage(userId, { from, to, limit, offset }) {
+  const result = await pool.query(
+    `SELECT ${COLUMNS}
+       FROM readings
+      WHERE ${IN_RANGE}
+      ORDER BY ${LIST_ORDER}
+      LIMIT $5 OFFSET $6`,
+    [userId, from ?? null, to ?? null, SLOT_KEYS, limit, offset]
+  );
+  return result.rows.map(toReading);
+}
+
+// Number of readings listReadings would return for the same bounds.
+export async function countReadings(userId, { from, to } = {}) {
+  const result = await pool.query(
+    `SELECT count(*)::int AS count
+       FROM readings
+      WHERE ${IN_RANGE}`,
+    [userId, from ?? null, to ?? null]
+  );
+  return result.rows[0].count;
 }
 
 export async function findReading(userId, id) {
