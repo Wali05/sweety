@@ -1,6 +1,7 @@
 // Report routes, mounted at /reports. Every route requires a login and only
 // ever reads the logged-in user's own readings.
 import { Router } from 'express';
+import { cacheReport, getCachedReport } from '../cache/reports.js';
 import { requireAuth } from '../middleware/auth.js';
 import { listReadings } from '../models/readings.js';
 import { dailyRange, monthToDateRange, previousMonthRange } from '../reports/ranges.js';
@@ -30,11 +31,17 @@ function parseReportDate(query) {
 
 // Builds the handler for one report. rangeFor turns the selected date into
 // { from, to }; includeReadings adds the list of readings to the response.
+// Results are cached per user, report and selected date when Redis is there.
 function reportHandler(report, rangeFor, { includeReadings = false } = {}) {
   return async (req, res) => {
     const { error, date } = parseReportDate(req.query);
     if (error) {
       return res.status(400).json({ error });
+    }
+
+    const cached = await getCachedReport(req.user.id, report, date);
+    if (cached) {
+      return res.json(cached);
     }
 
     const { from, to } = rangeFor(date);
@@ -62,6 +69,7 @@ function reportHandler(report, rangeFor, { includeReadings = false } = {}) {
       }));
     }
 
+    await cacheReport(req.user.id, report, date, body);
     res.json(body);
   };
 }

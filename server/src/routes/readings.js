@@ -1,6 +1,7 @@
 // Blood glucose reading routes, mounted at /readings. Every route requires a
 // login and only ever touches the logged-in user's own readings.
 import { Router } from 'express';
+import { invalidateReports } from '../cache/reports.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
   countReadings,
@@ -132,6 +133,7 @@ router.post('/', async (req, res) => {
     throw err;
   }
 
+  await invalidateReports(req.user.id);
   res.status(201).json({ reading });
 });
 
@@ -204,6 +206,7 @@ router.patch('/:id', async (req, res) => {
     return res.status(404).json({ error: MESSAGES.notFound });
   }
 
+  await invalidateReports(req.user.id);
   res.json({ reading });
 });
 
@@ -212,6 +215,7 @@ router.delete('/:id', async (req, res) => {
   if (!deleted) {
     return res.status(404).json({ error: MESSAGES.notFound });
   }
+  await invalidateReports(req.user.id);
   res.status(204).end();
 });
 

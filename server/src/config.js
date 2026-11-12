@@ -22,6 +22,8 @@ const config = {
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   // IANA time zone that decides what "today" is, independent of the server clock.
   appTimezone: process.env.APP_TIMEZONE || 'Asia/Kolkata',
+  // Optional: report results are cached in Redis when this is set.
+  redisUrl: process.env.REDIS_URL || null,
 };
 
 if (!config.databaseUrl) {

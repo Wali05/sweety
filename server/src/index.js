@@ -2,6 +2,7 @@
 import config from './config.js';
 import app from './app.js';
 import pool from './db/pool.js';
+import { closeCache } from './cache/redis.js';
 
 const server = app.listen(config.port, () => {
   console.log(`Sweety API listening on http://localhost:${config.port}`);
@@ -9,7 +10,7 @@ const server = app.listen(config.port, () => {
 
 async function shutdown() {
   server.close();
-  await pool.end();
+  await Promise.all([pool.end(), closeCache()]);
   process.exit(0);
 }
 

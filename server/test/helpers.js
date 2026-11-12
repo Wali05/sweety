@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import app from '../src/app.js';
 import pool from '../src/db/pool.js';
+import { closeCache } from '../src/cache/redis.js';
 
 // Ids of the users signed up by this test file, removed again in cleanup.
 const createdUserIds = [];
@@ -38,6 +39,8 @@ export async function cleanup() {
     }
   } finally {
     await pool.end();
+    // Only does something when REDIS_URL is set and a connection was opened.
+    await closeCache();
   }
 }
 
