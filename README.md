@@ -33,6 +33,7 @@ The repository contains the API server (sign-up and login, readings, and reports
 
 - **Server:** Node.js + Express
 - **Database:** PostgreSQL
+- **Cache:** Redis (optional, for report results)
 - **Client:** React
 
 The repository is an npm workspaces monorepo with two packages, `server/` and `client/`. All code is JavaScript (ES modules).
@@ -81,6 +82,7 @@ Run this at the repository root; it installs dependencies for both workspaces.
 | `JWT_EXPIRES_IN` | Optional. How long a login token lasts (default 7d)                                  |
 | `CLIENT_ORIGIN`  | Origin of the React client, allowed through CORS                                     |
 | `APP_TIMEZONE`   | Optional. Time zone that decides what "today" is for readings (default Asia/Kolkata) |
+| `REDIS_URL`      | Optional. Redis connection string for the report cache (the API works without it)    |
 
 ### Demo data
 
@@ -132,16 +134,19 @@ All bodies and responses are JSON. Errors look like `{ "error": "message" }`.
 
 All of these need `Authorization: Bearer <token>` (otherwise `401`) and only work on the logged-in user's own readings.
 
-| Method and path        | Body                           | Success              | Errors                                                      |
-| ---------------------- | ------------------------------ | -------------------- | ----------------------------------------------------------- |
-| `POST /readings`       | `{ date, slot, value }`        | `201` `{ reading }`  | `400` invalid input, `409` day is full or slot already used |
-| `GET /readings`        | none                           | `200` `{ readings }` | `400` `Date is not valid.`                                  |
-| `GET /readings/:id`    | none                           | `200` `{ reading }`  | `404` `Reading not found.`                                  |
-| `PATCH /readings/:id`  | any of `{ date, slot, value }` | `200` `{ reading }`  | `400` invalid input, `404`, `409` as for `POST`             |
-| `DELETE /readings/:id` | none                           | `204` no body        | `404` `Reading not found.`                                  |
+| Method and path        | Body                           | Success                                              | Errors                                                      |
+| ---------------------- | ------------------------------ | ---------------------------------------------------- | ----------------------------------------------------------- |
+| `POST /readings`       | `{ date, slot, value }`        | `201` `{ reading }`                                  | `400` invalid input, `409` day is full or slot already used |
+| `GET /readings`        | none                           | `200` `{ readings, page, limit, total, totalPages }` | `400` invalid date, page or limit                           |
+| `GET /readings/:id`    | none                           | `200` `{ reading }`                                  | `404` `Reading not found.`                                  |
+| `PATCH /readings/:id`  | any of `{ date, slot, value }` | `200` `{ reading }`                                  | `400` invalid input, `404`, `409` as for `POST`             |
+| `DELETE /readings/:id` | none                           | `204` no body                                        | `404` `Reading not found.`                                  |
 
 - `reading` is `{ id, date, slot, slotLabel, value, createdAt, updatedAt }`. `date` is always a plain `YYYY-MM-DD` string and `value` is a whole number of mg/dl.
-- `GET /readings` returns all of the user's readings, newest date first and in slot order within a day. Filter with `?date=YYYY-MM-DD` for one day, or `?from=` and/or `?to=` for an inclusive range (`date` wins if both are given). A date that does not exist or is before 1900, or `from` after `to`, gives `400` `Date is not valid.`
+- `GET /readings` returns the user's readings one page at a time, newest date first and in slot order within a day. Filter with `?date=YYYY-MM-DD` for one day, or `?from=` and/or `?to=` for an inclusive range (`date` wins if both are given). A date that does not exist or is before 1900, or `from` after `to`, gives `400` `Date is not valid.`
+- Paging uses `?page=` (default 1) and `?limit=` (default 20, maximum 200). The response is `{ readings, page, limit, total, totalPages }`: `total` is the number of readings matching the date filter, and `totalPages` is `total / limit` rounded up, or 0 when `total` is 0. A page past the end is not an error; it gives an empty `readings` list with the real totals, e.g. `{ "readings": [], "page": 3, "limit": 20, "total": 25, "totalPages": 2 }`.
+- A `page` or `limit` that is not valid gives `400` `Page is not valid.` or `Limit is not valid.` The page is checked after the date filter and before the limit. A page above 1,000,000 is refused as well, which keeps the database offset in a safe range.
+- The client's day view asks by `date` only: a day has at most 4 readings, so the default page is enough. The month-to-date chart asks for `limit=200`, so a full month (at most 124 readings) comes back in one request.
 - A reading that belongs to another user, an unknown id and a malformed id all give `404` `Reading not found.`, so ids are never revealed.
 
 Slots:
@@ -188,6 +193,8 @@ Each report takes one optional query parameter:
 | `date`    | `YYYY-MM-DD` | Today   | `400` `Date is not valid.` for a date that does not exist, `400` `Date cannot be in the future.` after today |
 
 "Today" is decided in the `APP_TIMEZONE` time zone, as for readings.
+
+When `REDIS_URL` is set, report results are cached in Redis, keyed by user, report and selected date, and a user's cached reports are cleared when that user successfully creates, updates or deletes a reading. The response body is the same either way. If `REDIS_URL` is not set or Redis cannot be reached, reports are computed from the database as before and the API still works.
 
 Date range per report (both ends inclusive), with the selected date 15 Oct 2026 as the example:
 
@@ -279,7 +286,7 @@ The reports page is linked from the header and the dashboard:
 
 - One date picker (today to start with; it stops at today) drives all three reports: **Daily** for that date with its readings in slot order, **Month to date** from the 1st of its month up to that date, and **Previous month** for the whole month before. Each shows the number of readings and the highest, lowest and average value in mg/dl (the average always with one decimal), or the server's `No readings for this period yet.` when there are none.
 - The three reports are fetched together and shown once all of them are back for the selected date. If the date changes while requests are still out, the older answers are ignored, so a slow response never replaces the current one.
-- A **month-to-date chart** under the summaries draws one line per time slot across the days of the month so far, from `GET /readings?from=&to=`. Each reading gets a dot and a slot's line joins its readings across days without one, so a missed day is never drawn as zero; the tooltip says `No readings` for such a day. The chart library is loaded only when the reports page opens, and if the chart fails the summaries stay on the page with a short message in its place.
+- A **month-to-date chart** under the summaries draws one line per time slot across the days of the month so far, from `GET /readings?from=&to=&limit=200`, which is one request for the whole month. Each reading gets a dot and a slot's line joins its readings across days without one, so a missed day is never drawn as zero; the tooltip says `No readings` for such a day. The chart library is loaded only when the reports page opens, and if the chart fails the summaries stay on the page with a short message in its place.
 - If a report request gets a `401`, the client logs out and leads back to `/reports` after logging in again.
 
 The pages share one set of styles in `client/src/index.css` (colours, spacing, buttons, form fields, cards, alerts) and three small components in `client/src/ui/` for error, empty and loading states, so every page words and shows these the same way. The layout works from narrow phones up to desktop: the header navigation wraps, the readings list and form stack on small screens, and the report summaries sit in a grid when there is room.
@@ -290,7 +297,7 @@ The dev server proxies `/auth`, `/readings`, `/reports` and `/health` to the API
 
 ## Running with Docker
 
-`docker-compose.yml` at the repository root starts PostgreSQL, the API and the built client. No local Node.js or PostgreSQL is needed:
+`docker-compose.yml` at the repository root starts PostgreSQL, Redis, the API and the built client. No local Node.js, PostgreSQL or Redis is needed:
 
 ```sh
 docker compose up --build
@@ -299,8 +306,9 @@ docker compose up --build
 - **App:** http://localhost:8080 (the client, served by nginx)
 - **API:** http://localhost:3000 (also reachable through the client, e.g. http://localhost:8080/health)
 - **PostgreSQL:** `localhost:5432`, user, password and database `sweety`, so the same database also works with `npm run dev:server` and the default `DATABASE_URL`
+- **Redis:** `localhost:6379` (`redis:7-alpine`), used only for the report cache
 
-The server waits until the database is healthy, applies the migrations and then starts the API. nginx serves the client and forwards `/auth`, `/readings`, `/reports` and `/health` to the server the same way the Vite dev proxy does (including the `Accept` check for `/readings` and `/reports`), so the browser talks to one origin and the client uses the same relative paths as in development. The client has no API URL setting to change.
+The server waits until both the database and Redis are healthy, applies the migrations and then starts the API. Redis has no volume, so its data is discarded when the stack stops. nginx serves the client and forwards `/auth`, `/readings`, `/reports` and `/health` to the server the same way the Vite dev proxy does (including the `Accept` check for `/readings` and `/reports`), so the browser talks to one origin and the client uses the same relative paths as in development. The client has no API URL setting to change.
 
 The database is not seeded automatically. To add the [demo user](#demo-data):
 
@@ -315,7 +323,7 @@ docker compose down
 docker compose down -v
 ```
 
-`JWT_SECRET` defaults to a dev-only value in `docker-compose.yml`. For anything beyond local use, set it to a long random string in the shell or in the root `.env`, which Docker Compose reads for `JWT_SECRET`, `JWT_EXPIRES_IN` and `APP_TIMEZONE`. `DATABASE_URL` and `CLIENT_ORIGIN` are fixed in the compose file. `.env` itself never goes into an image (see `.dockerignore`).
+`JWT_SECRET` defaults to a dev-only value in `docker-compose.yml`. For anything beyond local use, set it to a long random string in the shell or in the root `.env`, which Docker Compose reads for `JWT_SECRET`, `JWT_EXPIRES_IN` and `APP_TIMEZONE`. `DATABASE_URL`, `REDIS_URL` (`redis://redis:6379`) and `CLIENT_ORIGIN` are fixed in the compose file. `.env` itself never goes into an image (see `.dockerignore`).
 
 ## Tests
 
@@ -333,14 +341,17 @@ The server tests use Node's built-in test runner (`node:test`). The API tests ad
 | ---------------------------------- | --------------------------------------------------------- |
 | `server/test/auth.test.js`         | API tests for sign-up, login and the token check          |
 | `server/test/validation.test.js`   | Unit tests for the readings validation rules              |
-| `server/test/readings.test.js`     | API tests for the readings endpoints                      |
+| `server/test/readings.test.js`     | API tests for the readings endpoints, with pagination     |
 | `server/test/reports-unit.test.js` | Unit tests for the report date ranges and summary numbers |
 | `server/test/reports.test.js`      | API tests for the reports endpoints                       |
 | `server/test/seed.test.js`         | Unit tests for the demo data generator                    |
+| `server/test/cache.test.js`        | Tests for the report cache, with a stand-in for Redis     |
 
-That is 63 server tests in 6 files.
+That is 76 server tests in 7 files.
 
-The API tests run against the real database from `DATABASE_URL`, so it must be set up and migrated first (see [Database setup](#database-setup)). Each test signs up its own users with unique `@example.test` emails and removes them, along with their readings, when the run finishes; no other data is touched.
+The cache tests cover a cache hit, clearing on create, update and delete, failed writes leaving the cache alone, separate keys per user and per report, and the fallback to the database when Redis is missing or failing.
+
+The API tests run against the real database from `DATABASE_URL`, so it must be set up and migrated first (see [Database setup](#database-setup)). They do not need Redis: the cache tests put an in-memory stand-in in its place, and the other tests pass with or without a running Redis. Each test signs up its own users with unique `@example.test` emails and removes them, along with their readings, when the run finishes; no other data is touched.
 
 To run only the server tests:
 
@@ -354,7 +365,7 @@ The client tests use Vitest and React Testing Library in a jsdom environment. `f
 
 | File                                              | Tests | Covers                                                                                                                                                                                                                                                                |
 | ------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `client/src/__tests__/apiClient.test.js`          | 8     | API client: JSON body and Bearer header, server error messages, network failures, the readings calls (by date, by range, create, update, delete) and the report calls                                                                                                 |
+| `client/src/__tests__/apiClient.test.js`          | 9     | API client: JSON body and Bearer header, server error messages, network failures, the readings calls (by date, by range, `page` and `limit` on the query string, create, update, delete) and the report calls                                                         |
 | `client/src/__tests__/Login.test.jsx`             | 3     | Login form checks, server errors, storing the token and landing on the dashboard                                                                                                                                                                                      |
 | `client/src/__tests__/Signup.test.jsx`            | 2     | Sign-up password length check and the server message for an email already in use                                                                                                                                                                                      |
 | `client/src/__tests__/routeGuard.test.jsx`        | 4     | Protected dashboard: logged-out redirect, session restore, rejected token, logout, and the active link in the header                                                                                                                                                  |
@@ -369,7 +380,7 @@ The client tests use Vitest and React Testing Library in a jsdom environment. `f
 | `client/src/__tests__/MonthChart.test.jsx`        | 8     | The month-to-date chart: accessible name, one line per slot with the legend in slot order, dots and lines, axis labels, the tooltip (including days without readings) and keyboard stepping through the days                                                          |
 | `client/src/__tests__/ui.test.jsx`                | 3     | The shared error, empty and loading components and how screen readers are told about them                                                                                                                                                                             |
 
-That is 107 client tests in 14 files.
+That is 108 client tests in 14 files.
 
 The test setup and the shared helpers (rendering the app, mocking `fetch`, reading the rows of the readings list) are in `client/src/test/`. To run only the client tests:
 
@@ -385,6 +396,8 @@ npm test --workspace client
 - **Auth:** passwords are hashed with bcrypt (cost 10) and limited to 72 bytes, the most bcrypt reads. Login returns a JWT (HS256, 7 days by default) that holds only the user id; the client sends it as a Bearer token and keeps it in `localStorage`. Every protected request loads the user again, so a token for a deleted account stops working. Login gives the same message, in about the same time, for an unknown email and a wrong password.
 - **Own data only:** every readings query filters by the user id from the token. Someone else's reading, an unknown id and a malformed id all answer `404`.
 - **Reports:** each report turns the selected date into a date range (`server/src/reports/ranges.js`), reads that range with one indexed SQL query, and works out the count, highest, lowest and average in JavaScript (`server/src/reports/stats.js`). At no more than 4 readings a day that is at most 124 rows, and it keeps the ranges and the numbers as small pure functions with unit tests that need no database.
+- **Pagination:** `GET /readings` returns one page (`page` 1 and `limit` 20 by default, `limit` at most 200) together with `page`, `limit`, `total` and `totalPages`, so a client knows how much is left without a second request. A page past the end is an empty list, not an error. The month chart asks for `limit=200` because a month is at most 124 readings and it needs all of them at once. The reports do not go through this endpoint; they still read their whole range with the unpaginated query.
+- **Report cache:** optional, and only used when `REDIS_URL` is set. Each user has one Redis hash with a field per report and selected date, so a successful create, update or delete clears all of that user's reports with a single `DEL`; a write that fails leaves the cache alone. Every cache call is best-effort: without Redis, or with Redis down, the report is computed from the database and the request still succeeds. The hash also expires after 5 minutes, as a safety net only.
 - **Dates and time zones:** a reading's date is a calendar day, so it is a `YYYY-MM-DD` string everywhere: PostgreSQL formats it with `to_char`, and it is never turned into a JavaScript `Date` that could shift it by a day. "Today", for the future-date rule, is decided on the server in `APP_TIMEZONE`.
 - **Client structure:** pages in `client/src/pages/`, with the code for each feature beside them (`auth/`, `readings/`, `reports/`), one small `fetch` wrapper in `api/client.js`, and shared error, empty and loading components in `ui/`. Data loading sits in hooks (`useDayReadings`, `useReports`, `useMonthReadings`), and state is React state and one auth context; there is no state library. The chart library is loaded only when the reports page opens.
 
@@ -400,11 +413,10 @@ npm test --workspace client
 - Values are whole numbers of mg/dl only; there is no mmol/L option.
 - The brief sets no password rule, so sign-up asks for at least 8 characters.
 - A reading has a date and a slot but no clock time, as the brief describes it.
-- From the bonus list, the month chart, Docker Compose and the frontend tests are done. Pagination, Redis caching, the BullMQ job and the doctor role are not.
+- From the bonus list, the month chart, Docker Compose, the frontend tests, pagination and Redis caching are done. The BullMQ job and the doctor role are not.
 
 ### With more time
 
-- Pagination on `GET /readings` (`?page=1&limit=20`). It returns all of the user's readings for the given dates now, which is fine for the one-day and one-month ranges the client asks for but not for years of data.
 - Keep the token in an `httpOnly` cookie instead of `localStorage`, and add rate limiting to login and sign-up.
 - A time zone per user instead of one for the whole app, so "today" is right for everyone.
 - A separate test database and a CI run. The API tests clean up after themselves, but they use the database from `DATABASE_URL`.
